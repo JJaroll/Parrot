@@ -169,7 +169,10 @@ cython_debug/
 
 # Project specific
 workspace/
+uploads/
 *.mp3
 *.wav
 *.mp4
 *.mkv
+*.MOV
+*.mov

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parrot Audio Separator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        input[type=range][orient=vertical] {
+            writing-mode: bt-lr; /* IE */
+            -webkit-appearance: slider-vertical; /* WebKit */
+            width: 8px;
+            height: 200px;
+            padding: 0 5px;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-4">
+    <!-- UI Container -->
+    <div class="max-w-4xl w-full bg-slate-800 rounded-xl shadow-2xl p-8 border border-slate-700">
+        <h1 class="text-4xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Parrot</h1>
+        <p class="text-slate-400 mb-8">Audio Separator & Mixer (Apple Silicon Optimized)</p>
+        
+        <!-- Upload Sec -->
+        <div id="uploadSec" class="border-2 border-dashed border-slate-600 rounded-xl p-10 text-center hover:border-emerald-400 transition-colors">
+            <input type="file" id="fileInput" class="hidden">
+            <label for="fileInput" class="cursor-pointer text-emerald-400 font-semibold text-lg flex flex-col items-center">
+                <svg class="w-12 h-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                Seleccionar Video o Audio
+            </label>
+        </div>
+
+        <!-- Progress Sec -->
+        <div id="progressSec" class="hidden mt-8">
+            <h3 class="text-xl mb-2 font-medium">Procesando con IA (Demucs)</h3>
+            <div class="w-full bg-slate-700 rounded-full h-4 mb-2 overflow-hidden">
+                <div id="progressBar" class="bg-gradient-to-r from-emerald-400 to-cyan-400 h-4 rounded-full w-0 transition-all duration-500 relative">
+                    <div class="absolute top-0 left-0 right-0 bottom-0 bg-[length:20px_20px] bg-[linear-gradient(45deg,rgba(255,255,255,0.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.15)_50%,rgba(255,255,255,0.15)_75%,transparent_75%,transparent)] animate-[move_1s_linear_infinite]"></div>
+                </div>
+            </div>
+            <p id="progressText" class="text-sm text-slate-400">Inicializando modelo en el chip M1... (Esto puede tardar varios minutos)</p>
+        </div>
+
+        <!-- Mixer Sec -->
+        <div id="mixerSec" class="hidden mt-10">
+            <div class="flex flex-col md:flex-row justify-between md:items-center mb-6 border-b border-slate-700 pb-4">
+                <h3 class="text-2xl font-bold text-white mb-4 md:mb-0">Mezclador de Efectos</h3>
+                
+                <!-- Transport Controls -->
+                <div class="flex items-center space-x-3 bg-slate-900/50 px-4 py-2 rounded-lg" id="transportControls">
+                    <button id="playBtn" class="text-emerald-400 hover:text-emerald-300 transition-colors" title="Reproducir">
+                        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4l12 6-12 6z"/></svg>
+                    </button>
+                    <button id="pauseBtn" class="text-amber-400 hover:text-amber-300 hidden transition-colors" title="Pausar">
+                        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z"/></svg>
+                    </button>
+                    <button id="stopBtn" class="text-rose-400 hover:text-rose-300 transition-colors" title="Detener">
+                        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20"><path d="M5 5h10v10H5z"/></svg>
+                    </button>
+                    <div class="text-sm font-mono text-emerald-400 ml-4 track-time" id="timeDisplay">00:00</div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-6" id="faderGrid">
+                <!-- Faders will be generated here -->
+            </div>
+
+            <div class="mt-8 flex flex-col md:flex-row justify-between items-center border-t border-slate-700 pt-6">
+                <span class="text-sm text-slate-400 italic text-center md:text-left mb-4 md:mb-0">
+                    <span class="text-emerald-400">► Pre-escucha activa</span> usando tu navegador.<br>Al exportar, se usa FFmpeg para calidad final perfecta.
+                </span>
+                <button id="exportBtn" class="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white font-bold py-3 px-8 rounded-full shadow-lg transform transition hover:scale-105">
+                    Mezclar y Exportar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Logic -->
+    <script>
+        const stems = ['vocals', 'drums', 'bass', 'other', 'piano', 'guitar'];
+        const translations = {
+            'vocals': 'Voces (Turistas)',
+            'drums': 'Batería (Ruidos)',
+            'bass': 'Bajos',
+            'other': 'Ambiente',
+            'piano': 'Piano',
+            'guitar': 'Guitarra'
+        };
+        
+        let currentJobId = null;
+        let jobResultPath = null;
+        
+        // Web Audio API Context
+        let audioCtx;
+        let tracks = {};
+        
+        // UI states
+        let muteState = {};
+        let soloState = {};
+        let faderVals = {};
+
+        stems.forEach(stem => {
+            muteState[stem] = false;
+            soloState[stem] = false;
+            faderVals[stem] = 1.0;
+            
+            const mixerGrid = document.querySelector('#faderGrid');
+            mixerGrid.innerHTML += `
+                <div class="flex flex-col items-center bg-slate-700/50 p-4 rounded-xl shadow-inner border border-slate-600/50">
+                    <span class="text-sm font-semibold text-slate-300 text-center h-10 leading-tight mb-2">${translations[stem]}</span>
+                    
+                    <div class="flex space-x-2 mb-6 border border-slate-600 rounded">
+                        <button id="muteBtn_${stem}" class="w-8 h-8 flex items-center justify-center text-xs bg-slate-800 rounded-l text-white transition-colors border-r border-slate-600" title="Mute (Silenciar)">M</button>
+                        <button id="soloBtn_${stem}" class="w-8 h-8 flex items-center justify-center text-xs bg-slate-800 rounded-r text-white transition-colors" title="Solo">S</button>
+                    </div>
+
+                    <input type="range" orient="vertical" min="0" max="1.5" step="0.05" value="1.0" id="vol_${stem}" class="mb-4 accent-emerald-400 h-32">
+                    <span id="val_${stem}" class="text-xs text-emerald-400 font-mono mt-1 w-12 text-center bg-slate-900 rounded px-1 py-1">1.00</span>
+                </div>
+            `;
+        });
+
+        function updateGains() {
+            if(!audioCtx) return;
+            const isAnySolo = stems.some(s => soloState[s]);
+            
+            stems.forEach(s => {
+                let targetVol = faderVals[s];
+                if (muteState[s]) targetVol = 0;
+                if (isAnySolo && !soloState[s]) targetVol = 0;
+                
+                if(tracks[s] && tracks[s].gainNode) {
+                    // Smooth transition to avoid clicking noises
+                    tracks[s].gainNode.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.05);
+                }
+            });
+        }
+
+        // Add event listeners to faders and buttons
+        stems.forEach(stem => {
+            document.getElementById(`vol_${stem}`).addEventListener('input', (e) => {
+                const vol = parseFloat(e.target.value);
+                document.getElementById(`val_${stem}`).textContent = vol.toFixed(2);
+                faderVals[stem] = vol;
+                updateGains();
+            });
+
+            const muteBtn = document.getElementById(`muteBtn_${stem}`);
+            muteBtn.addEventListener('click', () => {
+                muteState[stem] = !muteState[stem];
+                muteBtn.classList.toggle('bg-rose-500', muteState[stem]);
+                muteBtn.classList.toggle('bg-slate-800', !muteState[stem]);
+                updateGains();
+            });
+
+            const soloBtn = document.getElementById(`soloBtn_${stem}`);
+            soloBtn.addEventListener('click', () => {
+                soloState[stem] = !soloState[stem];
+                soloBtn.classList.toggle('bg-amber-500', soloState[stem]);
+                soloBtn.classList.toggle('bg-slate-800', !soloState[stem]);
+                updateGains();
+            });
+        });
+
+        // Initialize Web Audio Engine
+        function initAudioEngine(resultPath) {
+            if(!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            stems.forEach(stem => {
+                const audio = new Audio(`/${resultPath}/${stem}.wav`);
+                audio.crossOrigin = "anonymous";
+                audio.preload = "auto";
+                
+                const source = audioCtx.createMediaElementSource(audio);
+                const gain = audioCtx.createGain();
+                
+                source.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                tracks[stem] = { audio, gainNode: gain };
+            });
+
+            // Master time tracker on the first track (vocals usually present)
+            tracks['vocals'].audio.addEventListener('timeupdate', () => {
+                const cur = tracks['vocals'].audio.currentTime;
+                const m = Math.floor(cur / 60);
+                const s = Math.floor(cur % 60).toString().padStart(2, '0');
+                document.getElementById('timeDisplay').textContent = `${m}:${s}`;
+            });
+            
+            tracks['vocals'].audio.addEventListener('ended', stopAll);
+            updateGains();
+        }
+
+        const playBtn = document.getElementById('playBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const stopBtn = document.getElementById('stopBtn');
+
+        function playAll() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            // Start all files simultaneously
+            stems.forEach(s => tracks[s].audio.play());
+            playBtn.classList.add('hidden');
+            pauseBtn.classList.remove('hidden');
+        }
+
+        function pauseAll() {
+            stems.forEach(s => tracks[s].audio.pause());
+            pauseBtn.classList.add('hidden');
+            playBtn.classList.remove('hidden');
+        }
+
+        function stopAll() {
+            pauseAll();
+            stems.forEach(s => {
+                tracks[s].audio.currentTime = 0;
+            });
+            document.getElementById('timeDisplay').textContent = "00:00";
+        }
+
+        playBtn.addEventListener('click', playAll);
+        pauseBtn.addEventListener('click', pauseAll);
+        stopBtn.addEventListener('click', stopAll);
+
+        // Upload and Poll logic
+        document.getElementById('fileInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+
+            document.getElementById('uploadSec').classList.add('hidden');
+            document.getElementById('progressSec').classList.remove('hidden');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch('/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+                currentJobId = data.job_id;
+                pollStatus();
+            } catch (err) {
+                alert("Error al subir el archivo.");
+                console.error(err);
+            }
+        });
+
+        async function pollStatus() {
+            const bar = document.getElementById('progressBar');
+            const txt = document.getElementById('progressText');
+            
+            let visualProgress = 10;
+            const progressInterval = setInterval(() => {
+                if(visualProgress < 90) visualProgress += 2;
+                bar.style.width = visualProgress + '%';
+            }, 1000);
+
+            const check = async () => {
+                try {
+                    const res = await fetch(`/status/${currentJobId}`);
+                    const data = await res.json();
+                    
+                    if (data.status === 'completed') {
+                        clearInterval(progressInterval);
+                        bar.style.width = '100%';
+                        txt.textContent = '¡Separación completada!';
+                        jobResultPath = data.result; 
+                        setTimeout(() => {
+                            document.getElementById('progressSec').classList.add('hidden');
+                            document.getElementById('mixerSec').classList.remove('hidden');
+                            initAudioEngine(jobResultPath); // Initialize the audio player!
+                        }, 1000);
+                    } else if (data.status === 'failed') {
+                        clearInterval(progressInterval);
+                        txt.textContent = 'Error en la separación: ' + data.error;
+                        bar.classList.replace('bg-gradient-to-r', 'bg-red-500');
+                    } else {
+                        setTimeout(check, 3000);
+                    }
+                } catch(e) {
+                    setTimeout(check, 3000);
+                }
+            };
+            check();
+        }
+
+        // Export logic
+        document.getElementById('exportBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('exportBtn');
+            btn.textContent = 'Mezclando y Generando...';
+            btn.disabled = true;
+            
+            pauseAll(); // Pause playback during export to save resources
+
+            const payload = {};
+            stems.forEach(stem => {
+                let vol = faderVals[stem];
+                const isAnySolo = stems.some(s => soloState[s]);
+                if (muteState[stem]) vol = 0;
+                if (isAnySolo && !soloState[stem]) vol = 0;
+                payload[stem] = vol;
+            });
+
+            try {
+                const res = await fetch(`/mix/${currentJobId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if(!res.ok) throw new Error("Error en el servidor");
+                
+                const data = await res.json();
+                window.location.href = '/' + data.file; 
+                
+                btn.textContent = '¡Descarga Lista!';
+                setTimeout(() => { btn.textContent = 'Mezclar y Exportar'; btn.disabled = false; }, 3000);
+            } catch(e) {
+                alert("Hubo un error al generar la mezcla final.");
+                btn.textContent = 'Mezclar y Exportar';
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

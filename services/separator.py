@@ -53,9 +53,7 @@ class AudioSeparatorService:
         
         # M1 MAC Memory/VRAM optimization 
         if device == "mps":
-            cmd.extend(["--segment", "10"]) # Reduce segment size from default (usually 11-15) for lower memory usage
-            cmd.extend(["--split", "true"]) # Splitting tracks on RAM to prevent Memory Error
-            
+            cmd.extend(["--segment", "7"]) # Max segment for htdemucs_6s is 7.8 (must be int)
         cmd.append(str(audio_path))
         
         logger.info(f"Starting Demucs on {device} with command: {' '.join(cmd)}")
@@ -64,10 +62,11 @@ class AudioSeparatorService:
             result = subprocess.run(cmd, check=True, capture_output=True, text=True)
             logger.info("Demucs processing completed successfully.")
         except subprocess.CalledProcessError as e:
-            logger.error(f"Demucs failed: {e.stderr}")
-            if "Memory" in e.stderr or "MPS" in e.stderr:
-                raise Exception("Out of Memory Error during Demucs separation. Try reducing segment size.")
-            raise Exception("Audio separation failed due to AI Engine error.")
+            error_details = e.stderr.strip() if e.stderr else str(e)
+            logger.error(f"Demucs failed: {error_details}")
+            if e.stderr and ("Memory" in e.stderr or "MPS" in e.stderr):
+                raise Exception(f"Out of Memory Error during Demucs separation. Try reducing segment size.\nDetails: {error_details}")
+            raise Exception(f"Audio separation failed. AI Engine Details: {error_details}")
 
     def process_job(self, job_id: str, file_path: Path) -> Dict[str, Any]:
         """Cerebro Pipeline: Ingestion -> Extraction -> Separation"""
@@ -87,19 +86,24 @@ class AudioSeparatorService:
             shutil.copy(file_path, audio_path)
 
         # 2. Separación de 6 Stems vía Demucs
-        demucs_out = job_dir / "separated"
+        demucs_out = job_dir / "separated_raw"
         self.run_demucs(audio_path, demucs_out)
         
         # Demucs default folder structure pattern: output_dir/model_name/track_name/...
-        # Because we passed source_audio.wav, the track name is 'source_audio'
-        stems_dir = demucs_out / self.model_name / "source_audio"
+        raw_stems_dir = demucs_out / self.model_name / "source_audio"
+        stems_dir = job_dir / "separated"
+        stems_dir.mkdir(parents=True, exist_ok=True)
         stems = ["vocals", "drums", "bass", "piano", "guitar", "other"]
         
-        # Validación
+        import shutil
         for stem in stems:
-            expected_stem_path = stems_dir / f"{stem}.wav"
-            if not expected_stem_path.exists():
-                logger.warning(f"Could not find exact path for stem {stem}. Checking structure.")
+            stem_src = raw_stems_dir / f"{stem}.wav"
+            if stem_src.exists():
+                shutil.move(str(stem_src), str(stems_dir / f"{stem}.wav"))
+                
+        # Clean up raw demucs output
+        if demucs_out.exists():
+            shutil.rmtree(demucs_out)
                 
         return {
             "job_id": job_id,
