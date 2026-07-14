@@ -1,0 +1,81 @@
+/* =========================================================
+   DESIGN TOKENS — Sistema de diseño "Cicada"
+   -----------------------------------------------------------
+   Origen: extraído de la interfaz de Cicada (control-room /
+   hi-fi minimalista, estética "iPod Edition"). Generalizado
+   para poder reutilizarse en proyectos de cualquier naturaleza.
+
+   Cómo funciona:
+   - El TEMA (claro/oscuro) se controla con el atributo
+     [data-theme] en <html>.
+   - El ACENTO (color de marca) se controla con el atributo
+     [data-color] en <html>.
+   - Todo lo demás (componentes, layout) consume estas
+     variables, nunca colores hardcodeados.
+   ========================================================= */
+
+/* -----------------------------------------
+   TEMA OSCURO (por defecto, sin atributo)
+   ----------------------------------------- */
+:root {
+  /* Fondos */
+  --bg-app: #151618;      /* Fondo exterior de la app */
+  --bg-main: #25262A;     /* Fondo del área de trabajo principal */
+  --bg-card: #1C1D21;     /* Fondo de tarjetas / paneles */
+  --input-bg: #151618;    /* Fondo de campos de texto */
+
+  /* Panel lateral (mantiene su identidad en ambos temas) */
+  --bg-sidebar: #F5F6F8;
+
+  /* Botones neutros (sin color de marca) */
+  --btn-bg: rgba(255, 255, 255, 0.05);
+  --btn-hover: rgba(255, 255, 255, 0.1);
+
+  /* Textos */
+  --text-main: #FFFFFF;
+  --text-muted: #9CA3AF;
+  --text-sidebar: #1A1A1A;
+  --text-sidebar-muted: #6B7280;
+
+  /* Bordes */
+  --border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* -----------------------------------------
+   TEMA CLARO
+   ----------------------------------------- */
+[data-theme="light"] {
+  --bg-app: #D8DCE0;
+  --bg-main: #E8ECEF;
+  --bg-card: #FFFFFF;
+  --input-bg: #F9FAFB;
+
+  --btn-bg: rgba(0, 0, 0, 0.05);
+  --btn-hover: rgba(0, 0, 0, 0.1);
+
+  --text-main: #1A1A1A;
+  --text-muted: #6B7280;
+
+  --border-color: rgba(0, 0, 0, 0.1);
+}
+
+/* -----------------------------------------
+   ACENTOS DE COLOR ("colección Nano")
+   Añade o quita bloques según lo que necesite el proyecto.
+   ----------------------------------------- */
+[data-color="blue"]   { --accent: #0099FF; --accent-hover: #0088E6; --accent-light: rgba(0, 153, 255, 0.15); }
+[data-color="green"]  { --accent: #77C800; --accent-hover: #6AB300; --accent-light: rgba(119, 200, 0, 0.15); }
+[data-color="purple"] { --accent: #8A2BE2; --accent-hover: #7B27C9; --accent-light: rgba(138, 43, 226, 0.15); }
+[data-color="orange"] { --accent: #FF8800; --accent-hover: #E67A00; --accent-light: rgba(255, 136, 0, 0.15); }
+[data-color="pink"]   { --accent: #E62E6B; --accent-hover: #CC295F; --accent-light: rgba(230, 46, 107, 0.15); }
+
+/* -----------------------------------------
+   TIPOGRAFÍA
+   - Outfit: texto general, títulos, display.
+   - JetBrains Mono: etiquetas en mayúsculas, datos, inputs.
+   Cárgalas vía Google Fonts (ver template.html) o self-hosted.
+   ----------------------------------------- */
+:root {
+  --font-body: "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}

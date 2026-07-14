@@ -60,23 +60,30 @@ class AudioMixerService:
             if isinstance(stem_config, dict):
                 vol = stem_config.get("volume", 1.0)
                 noise_gate = stem_config.get("noise_gate", False)
+                highpass_freq = stem_config.get("highpass_freq", 0.0)
                 bass_gain = stem_config.get("bass_gain", 0.0)
                 mid_gain = stem_config.get("mid_gain", 0.0)
                 treble_gain = stem_config.get("treble_gain", 0.0)
             else: # assume it has attributes if not a dict
                 vol = getattr(stem_config, "volume", 1.0)
                 noise_gate = getattr(stem_config, "noise_gate", False)
+                highpass_freq = getattr(stem_config, "highpass_freq", 0.0)
                 bass_gain = getattr(stem_config, "bass_gain", 0.0)
                 mid_gain = getattr(stem_config, "mid_gain", 0.0)
                 treble_gain = getattr(stem_config, "treble_gain", 0.0)
 
             # Apply filters serially
             a_stream = stream.audio
-            
+
+            # 0. High-pass filter: corta retumbe de viento / rumble de baja frecuencia
+            # (grabaciones de campo en exteriores) antes del resto de la cadena.
+            if highpass_freq and highpass_freq > 0:
+                a_stream = a_stream.filter('highpass', f=highpass_freq)
+
             # 1. Volume
             if vol != 1.0:
                 a_stream = a_stream.filter('volume', vol)
-                
+
             # 2. Noise Gate (mostly for vocals)
             if noise_gate:
                 # agate: basic noise gate filter

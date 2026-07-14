@@ -44,8 +44,9 @@ class AudioSeparatorService:
         """Runs demucs via subprocess to ensure memory safety on local system."""
         device = self.get_device()
         
+        import sys
         cmd = [
-            "demucs",
+            sys.executable, "-m", "demucs.separate",
             "--name", self.model_name,
             "--out", str(output_dir),
             "-d", device,

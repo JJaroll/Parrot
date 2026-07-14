@@ -1,15 +1,17 @@
 import os
+import shutil
 import uuid
 import logging
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from services.separator import AudioSeparatorService
 from services.mixer import AudioMixerService
+from services.transcriber import TranscriptionService
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -44,6 +46,7 @@ if static_dir.exists():
 JOBS_DB = {}
 separator_service = AudioSeparatorService(jobs_dir=str(JOBS_DIR))
 mixer_service = AudioMixerService(jobs_dir=str(JOBS_DIR), uploads_dir=str(UPLOAD_DIR))
+transcriber_service = TranscriptionService(jobs_dir=str(JOBS_DIR), model_size="small")
 
 # Expose workspace for file downloading
 app.mount("/workspace", StaticFiles(directory="workspace"), name="workspace")
@@ -52,6 +55,7 @@ app.mount("/workspace", StaticFiles(directory="workspace"), name="workspace")
 class StemConfig(BaseModel):
     volume: float = 1.0
     noise_gate: bool = False
+    highpass_freq: float = 0.0
     bass_gain: float = 0.0
     mid_gain: float = 0.0
     treble_gain: float = 0.0
@@ -81,226 +85,28 @@ def process_separation_work(job_id: str, file_path: Path):
         current_job.update({"status": "failed", "error": str(e)})
         JOBS_DB[job_id] = current_job
 
-@app.get("/", response_class=HTMLResponse)
+def process_transcription_work(job_id: str, stem: str):
+    try:
+        job = JOBS_DB.get(job_id, {})
+        job["transcription"] = {"status": "processing", "stem": stem}
+        JOBS_DB[job_id] = job
+
+        stem_path = Path(job["stems"][stem])
+        result = transcriber_service.transcribe(job_id, stem_path)
+
+        job = JOBS_DB.get(job_id, {})
+        job["transcription"] = {"status": "completed", "stem": stem, **result}
+        JOBS_DB[job_id] = job
+    except Exception as e:
+        logger.error(f"Transcription failed for job {job_id}: {e}")
+        job = JOBS_DB.get(job_id, {})
+        job["transcription"] = {"status": "failed", "stem": stem, "error": str(e)}
+        JOBS_DB[job_id] = job
+
+@app.get("/", response_class=FileResponse)
 async def serve_ui():
-    """Serves the basic HTML Interface for uploading files."""
-    html_content = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <title>Parrot - Audio Post-Production</title>
-        <script src="https://unpkg.com/wavesurfer.js@7"></script>
-        <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 2rem; background: #121212; color: #fff;}
-            .container { max-width: 800px; margin: 0 auto; background: #1e1e1e; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);}
-            h1 { color: #1DB954; }
-            h2 { color: #1DB954; font-size: 1.2rem; margin-top: 1.5rem; border-bottom: 1px solid #333; padding-bottom: 0.5rem;}
-            input[type="file"] { margin: 1rem 0; color: #fff; }
-            button { background: #1DB954; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px;}
-            button:hover { background: #1ed760; }
-            .stem-control { background: #2a2a2a; margin-bottom: 15px; padding: 15px; border-radius: 6px; border-left: 4px solid #1DB954; }
-            .fader-row { display: flex; align-items: center; justify-content: space-between; }
-            .fader-row label { font-weight: bold; width: 100px; }
-            input[type=range] { flex-grow: 1; margin: 0 15px; accent-color: #1DB954; }
-            .adv-options { display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #444; }
-            .adv-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 0.9em; }
-            .adv-row label { display: flex; align-items: center; gap: 8px;}
-            .master-control { margin-top: 20px; padding: 15px; background: #222; border-radius: 6px; border: 1px solid #1DB954; }
-            #status { margin-top: 1rem; color: #aaa; padding: 10px; border-radius: 4px; background: #2a2a2a; display: none;}
-            #waveform { margin-top: 20px; background: #1a1a1a; border-radius: 4px; padding: 10px; display: none; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🦜 Parrot - Advanced Audio</h1>
-            <p>Sube un archivo (.mp3, .wav, .mp4, .mkv, .mov) para separar sus 6 pistas y aplicar post-producción con WaveSurfer.js</p>
-            <input type="file" id="fileInput" accept=".mp3,.wav,.mp4,.mkv,.mov">
-            <button onclick="uploadFile()">1. Separar Audio</button>
-            <div id="status"></div>
-            
-            <div id="mixer-section" style="display:none; margin-top: 2rem;">
-                <h2>Mezclador & Post-Producción</h2>
-                <div id="stems-container"></div>
-                
-                <div class="master-control">
-                    <h3>Master Buss</h3>
-                    <label><input type="checkbox" id="master_normalize"> Normalizar (Loudnorm)</label>
-                    <br>
-                    <button onclick="mixAudio()" style="width: 100%; margin-top: 15px;">2. Mix & Render</button>
-                </div>
-                
-                <div id="waveform"></div>
-                <div id="download-section" style="display:none; margin-top: 1rem;">
-                    <a id="download-link" href="#" target="_blank" style="color: #1DB954; text-decoration: none; font-weight: bold;">🔊 Escuchar / Descargar Mix Final</a>
-                </div>
-            </div>
-        </div>
-        
-        <script>
-            let currentJobId = null;
-            let wavesurfer = null;
-            let finalFileName = null;
-            const stems = ["vocals", "drums", "bass", "piano", "guitar", "other"];
-
-            function buildMixerUI() {
-                const container = document.getElementById('stems-container');
-                stems.forEach(stem => {
-                    const html = `
-                    <div class="stem-control">
-                        <div class="fader-row">
-                            <label style="text-transform: capitalize;">${stem}</label>
-                            <input type="range" id="vol_${stem}" min="0" max="2" step="0.1" value="1.0">
-                            <span id="vol_val_${stem}">1.0</span>
-                            <button onclick="toggleAdv('${stem}')" style="background: #444; margin-left:10px; padding: 4px 8px; font-size: 0.8em;">Modo Avanzado</button>
-                        </div>
-                        <div class="adv-options" id="adv_${stem}">
-                            <div class="adv-row">
-                                <label><input type="checkbox" id="gate_${stem}"> 🔌 Noise Gate (Eliminar ruido)</label>
-                            </div>
-                            <div class="adv-row">
-                                <label>Bass <input type="range" id="bass_${stem}" min="-20" max="20" value="0" step="1"></label>
-                                <label>Mid <input type="range" id="mid_${stem}" min="-20" max="20" value="0" step="1"></label>
-                                <label>Treble <input type="range" id="treble_${stem}" min="-20" max="20" value="0" step="1"></label>
-                            </div>
-                        </div>
-                    </div>
-                    `;
-                    container.innerHTML += html;
-                });
-                
-                stems.forEach(stem => {
-                    document.getElementById(`vol_${stem}`).addEventListener('input', (e) => {
-                        document.getElementById(`vol_val_${stem}`).innerText = parseFloat(e.target.value).toFixed(1);
-                    });
-                });
-            }
-            
-            buildMixerUI();
-
-            function toggleAdv(stem) {
-                const el = document.getElementById(`adv_${stem}`);
-                el.style.display = el.style.display === 'none' || el.style.display === '' ? 'block' : 'none';
-            }
-
-            async function uploadFile() {
-                const fileInput = document.getElementById('fileInput').files[0];
-                if (!fileInput) return alert('Por favor, selecciona un archivo primero.');
-                
-                const statusDiv = document.getElementById('status');
-                statusDiv.style.display = 'block';
-                statusDiv.innerText = "Subiendo archivo...";
-                document.getElementById('mixer-section').style.display = 'none';
-                document.getElementById('waveform').style.display = 'none';
-                document.getElementById('download-section').style.display = 'none';
-                
-                const formData = new FormData();
-                formData.append('file', fileInput);
-                
-                try {
-                    const response = await fetch('/api/v1/separate', { method: 'POST', body: formData });
-                    const data = await response.json();
-                    if (data.job_id) {
-                        currentJobId = data.job_id;
-                        statusDiv.innerText = `Procesando (Job ID: ${currentJobId})... Esto puede tardar varios minutos dependiendo del hardware.`;
-                        checkStatus(currentJobId);
-                    } else {
-                        statusDiv.innerText = "Error al iniciar el trabajo.";
-                    }
-                } catch (e) {
-                    statusDiv.innerText = "Error conectando con el servidor.";
-                }
-            }
-            
-            async function checkStatus(jobId) {
-                const statusDiv = document.getElementById('status');
-                const interval = setInterval(async () => {
-                    const res = await fetch(`/api/v1/status/${jobId}`);
-                    const data = await res.json();
-                    if (data.status === 'completed') {
-                        statusDiv.innerHTML = `<span style="color: #1DB954; font-weight: bold;">¡Separación Exitosa!</span> Pistas listas. Ahora puedes mezclarlas.`;
-                        document.getElementById('mixer-section').style.display = 'block';
-                        clearInterval(interval);
-                    } else if (data.status === 'failed') {
-                        statusDiv.innerHTML = `<span style="color: #e74c3c;">Error:</span> ${data.error}`;
-                        clearInterval(interval);
-                    } else {
-                        statusDiv.innerText = `Separando audio mediante IA... (Estado: ${data.status})`;
-                    }
-                }, 3000);
-            }
-
-            async function mixAudio() {
-                if (!currentJobId) return alert('No hay job activo.');
-                
-                const payload = { normalize: document.getElementById('master_normalize').checked };
-                stems.forEach(stem => {
-                    payload[stem] = {
-                        volume: parseFloat(document.getElementById(`vol_${stem}`).value),
-                        noise_gate: document.getElementById(`gate_${stem}`).checked,
-                        bass_gain: parseFloat(document.getElementById(`bass_${stem}`).value),
-                        mid_gain: parseFloat(document.getElementById(`mid_${stem}`).value),
-                        treble_gain: parseFloat(document.getElementById(`treble_${stem}`).value),
-                    };
-                });
-
-                const btn = event.target;
-                const oldText = btn.innerText;
-                btn.innerText = "Procesando Mix...";
-                btn.disabled = true;
-
-                try {
-                    const res = await fetch(`/api/v1/merge/${currentJobId}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const data = await res.json();
-                    
-                    if (res.ok) {
-                        const pathParts = data.output.split('/');
-                        finalFileName = pathParts[pathParts.length - 1];
-                        const urlPath = `/workspace/jobs/${currentJobId}/${finalFileName}`;
-                        
-                        document.getElementById('download-section').style.display = 'block';
-                        const a = document.getElementById('download-link');
-                        a.href = urlPath;
-                        a.innerText = `🔊 Escuchar / Descargar ${finalFileName}`;
-                        
-                        // Load waveform
-                        const wfDiv = document.getElementById('waveform');
-                        wfDiv.style.display = 'block';
-                        wfDiv.innerHTML = '';
-                        
-                        if (wavesurfer && wavesurfer.destroy) wavesurfer.destroy();
-                        
-                        wavesurfer = WaveSurfer.create({
-                            container: '#waveform',
-                            waveColor: '#1DB954',
-                            progressColor: '#1ed760',
-                            barWidth: 2,
-                            height: 100,
-                            url: urlPath,
-                            mediaControls: true
-                        });
-                        
-                        wavesurfer.on('interaction', () => wavesurfer.play());
-                        
-                    } else {
-                        alert("Error: " + data.detail);
-                    }
-                } catch(e) {
-                    alert("Error mixing audio");
-                } finally {
-                    btn.innerText = oldText;
-                    btn.disabled = false;
-                }
-            }
-        </script>
-    </body>
-    </html>
-    """
-    return html_content
+    """Serves the Parrot Frontend Dashboard."""
+    return FileResponse(BASE_DIR / "frontend" / "index.html")
 
 @app.post("/api/v1/separate")
 async def start_separation(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
@@ -329,6 +135,53 @@ async def get_status(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
+
+@app.post("/api/v1/transcribe/{job_id}")
+async def start_transcription(job_id: str, background_tasks: BackgroundTasks, stem: str = "vocals"):
+    """Transcribe un stem ya separado (por defecto 'vocals') con Whisper local, generando .srt y .txt."""
+    job = JOBS_DB.get(job_id)
+    if not job or job.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="Job no está listo (separación no completada)")
+
+    stems = job.get("stems", {})
+    if stem not in stems:
+        raise HTTPException(status_code=400, detail=f"Stem inválido: {stem}")
+
+    job["transcription"] = {"status": "queued", "stem": stem}
+    JOBS_DB[job_id] = job
+    background_tasks.add_task(process_transcription_work, job_id, stem)
+
+    return {"status": "queued", "stem": stem}
+
+def _dir_size(path: Path) -> int:
+    total = 0
+    if path.exists():
+        for f in path.rglob("*"):
+            if f.is_file():
+                total += f.stat().st_size
+    return total
+
+def _format_size(num_bytes: int) -> str:
+    size = float(num_bytes)
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if size < 1024:
+            return f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} PB"
+
+@app.post("/api/v1/cleanup")
+async def cleanup_workspace():
+    """Borra todo lo generado (uploads originales + stems separados + mixes + transcripciones) para liberar espacio."""
+    freed_bytes = _dir_size(JOBS_DIR) + _dir_size(UPLOAD_DIR)
+
+    for directory in (JOBS_DIR, UPLOAD_DIR):
+        if directory.exists():
+            shutil.rmtree(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+
+    JOBS_DB.clear()
+
+    return {"freed_bytes": freed_bytes, "freed_human": _format_size(freed_bytes)}
 
 @app.post("/api/v1/merge/{job_id}")
 async def merge_stems(job_id: str, request: MergeRequest):

@@ -1,328 +1,1338 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="dark" data-color="blue">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parrot Audio Separator</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        input[type=range][orient=vertical] {
-            writing-mode: bt-lr; /* IE */
-            -webkit-appearance: slider-vertical; /* WebKit */
-            width: 8px;
-            height: 200px;
-            padding: 0 5px;
+    <title>Parrot | Audio Separation Studio</title>
+
+    <!-- Tailwind vía CDN -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+
+    <!-- Mapeo de los tokens CSS a clases de Tailwind -->
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        app: 'var(--bg-app)',
+                        main: 'var(--bg-main)',
+                        card: 'var(--bg-card)',
+                        sidebar: 'var(--bg-sidebar)',
+                        input: 'var(--input-bg)',
+                        btn: 'var(--btn-bg)',
+                        'btn-hover': 'var(--btn-hover)',
+                        accent: {
+                            DEFAULT: 'var(--accent)',
+                            hover: 'var(--accent-hover)',
+                            light: 'var(--accent-light)',
+                        },
+                    },
+                    textColor: {
+                        main: 'var(--text-main)',
+                        muted: 'var(--text-muted)',
+                        sidebar: 'var(--text-sidebar)',
+                        'sidebar-muted': 'var(--text-sidebar-muted)',
+                    },
+                    borderColor: {
+                        theme: 'var(--border-color)',
+                    },
+                    fontFamily: {
+                        'label-caps': ['JetBrains Mono'],
+                        'data': ['JetBrains Mono'],
+                        'headline': ['Outfit'],
+                        'body': ['Outfit'],
+                        'mono': ['JetBrains Mono'],
+                    },
+                }
+            }
         }
+    </script>
+
+    <!-- ============ TOKENS (copia embebida de UX-UI/tokens.css, ver también frontend/tokens.css) ============ -->
+    <style>
+        /* TEMA OSCURO (por defecto) */
+        :root {
+            --bg-app: #151618;
+            --bg-main: #25262A;
+            --bg-card: #1C1D21;
+            --input-bg: #151618;
+            --bg-sidebar: #F5F6F8;
+
+            --btn-bg: rgba(255, 255, 255, 0.05);
+            --btn-hover: rgba(255, 255, 255, 0.1);
+
+            --text-main: #FFFFFF;
+            --text-muted: #9CA3AF;
+            --text-sidebar: #1A1A1A;
+            --text-sidebar-muted: #6B7280;
+
+            --border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* TEMA CLARO */
+        [data-theme="light"] {
+            --bg-app: #D8DCE0;
+            --bg-main: #E8ECEF;
+            --bg-card: #FFFFFF;
+            --input-bg: #F9FAFB;
+
+            --btn-bg: rgba(0, 0, 0, 0.05);
+            --btn-hover: rgba(0, 0, 0, 0.1);
+
+            --text-main: #1A1A1A;
+            --text-muted: #6B7280;
+
+            --border-color: rgba(0, 0, 0, 0.1);
+        }
+
+        /* ACENTOS */
+        [data-color="blue"]   { --accent: #0099FF; --accent-hover: #0088E6; --accent-light: rgba(0, 153, 255, 0.15); }
+        [data-color="green"]  { --accent: #77C800; --accent-hover: #6AB300; --accent-light: rgba(119, 200, 0, 0.15); }
+        [data-color="purple"] { --accent: #8A2BE2; --accent-hover: #7B27C9; --accent-light: rgba(138, 43, 226, 0.15); }
+        [data-color="orange"] { --accent: #FF8800; --accent-hover: #E67A00; --accent-light: rgba(255, 136, 0, 0.15); }
+        [data-color="pink"]   { --accent: #E62E6B; --accent-hover: #CC295F; --accent-light: rgba(230, 46, 107, 0.15); }
+    </style>
+
+    <!-- ============ COMPONENTES REUTILIZABLES (sistema Cicada) ============ -->
+    <style>
+        body {
+            background-color: var(--bg-app);
+            overflow: hidden;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+        }
+
+        .glass-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(16px);
+            border-radius: 16px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+        .scanline-effect { position: relative; overflow: hidden; }
+        .scanline-effect::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to bottom, transparent, var(--accent-light), transparent);
+            height: 100%;
+            animation: scanline 6s linear infinite;
+            pointer-events: none;
+        }
+
+        .nav-item-active {
+            background: var(--accent-light);
+            color: var(--accent) !important;
+        }
+        .nav-item-inactive { color: rgba(26, 27, 32, 0.4); }
+        .nav-item:hover { background: rgba(0, 0, 0, 0.05); }
+
+        .btn-secondary {
+            background: var(--btn-bg);
+            color: var(--text-muted);
+            transition: background 0.2s, color 0.2s;
+        }
+        .btn-secondary:hover { background: var(--btn-hover); color: var(--text-main); }
+        .btn-secondary.active { background: var(--accent-light); color: var(--accent); }
+
+        .ui-input {
+            background: var(--input-bg) !important;
+            border: none !important;
+            border-bottom: 1px solid var(--border-color) !important;
+            border-radius: 8px !important;
+            font-family: var(--font-mono, 'JetBrains Mono', monospace);
+            color: var(--text-main) !important;
+            outline: none;
+            box-shadow: none !important;
+            transition: border-color 0.2s ease;
+        }
+        .ui-input:focus { border-color: var(--accent) !important; }
+
+        .ui-checkbox {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .theme-btn { border-color: var(--border-color); background: var(--input-bg); color: var(--text-muted); }
+        .theme-btn.selected { border-color: var(--accent); background: var(--accent-light); color: var(--text-main); }
+        .color-btn { border: 2.5px solid transparent; }
+        .color-btn.selected { border-color: var(--text-main); box-shadow: 0 0 0 4px var(--accent-light); }
+
+        /* ============ Específico de Parrot: multitrack, faders, EQ ============ */
+        .waveform-row { transition: all 0.2s ease; position: relative; }
+        .waveform-row:hover:not(.border-accent) { background-color: var(--btn-bg); }
+
+        .eq-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 2px;
+            background: var(--border-color);
+            outline: none;
+            border-radius: 2px;
+        }
+        .eq-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 10px;
+            height: 10px;
+            background: var(--accent);
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 0 6px var(--accent);
+        }
+        input[type=range]::-webkit-slider-runnable-track { background: transparent; border: none; }
+
+        /* Vistas / pestañas (patrón SPA simple sin framework) */
+        .view { display: none; }
+        .view.active { display: flex; }
     </style>
 </head>
-<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-4">
-    <!-- UI Container -->
-    <div class="max-w-4xl w-full bg-slate-800 rounded-xl shadow-2xl p-8 border border-slate-700">
-        <h1 class="text-4xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Parrot</h1>
-        <p class="text-slate-400 mb-8">Audio Separator & Mixer (Apple Silicon Optimized)</p>
-        
-        <!-- Upload Sec -->
-        <div id="uploadSec" class="border-2 border-dashed border-slate-600 rounded-xl p-10 text-center hover:border-emerald-400 transition-colors">
-            <input type="file" id="fileInput" class="hidden">
-            <label for="fileInput" class="cursor-pointer text-emerald-400 font-semibold text-lg flex flex-col items-center">
-                <svg class="w-12 h-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                Seleccionar Video o Audio
-            </label>
-        </div>
+<body class="bg-app text-main font-body h-screen flex justify-center p-4">
+    <div class="w-full h-full max-w-[1920px] mx-auto flex gap-4">
 
-        <!-- Progress Sec -->
-        <div id="progressSec" class="hidden mt-8">
-            <h3 class="text-xl mb-2 font-medium">Procesando con IA (Demucs)</h3>
-            <div class="w-full bg-slate-700 rounded-full h-4 mb-2 overflow-hidden">
-                <div id="progressBar" class="bg-gradient-to-r from-emerald-400 to-cyan-400 h-4 rounded-full w-0 transition-all duration-500 relative">
-                    <div class="absolute top-0 left-0 right-0 bottom-0 bg-[length:20px_20px] bg-[linear-gradient(45deg,rgba(255,255,255,0.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.15)_50%,rgba(255,255,255,0.15)_75%,transparent_75%,transparent)] animate-[move_1s_linear_infinite]"></div>
-                </div>
+        <!-- ============ SIDEBAR: identidad fija de Parrot ============ -->
+        <aside class="h-full w-[100px] bg-sidebar rounded-[20px] flex flex-col items-center py-8 z-50 text-sidebar shrink-0">
+            <div class="mb-12">
+                <span class="font-headline text-[24px] font-bold tracking-tighter">P.</span>
             </div>
-            <p id="progressText" class="text-sm text-slate-400">Inicializando modelo en el chip M1... (Esto puede tardar varios minutos)</p>
-        </div>
-
-        <!-- Mixer Sec -->
-        <div id="mixerSec" class="hidden mt-10">
-            <div class="flex flex-col md:flex-row justify-between md:items-center mb-6 border-b border-slate-700 pb-4">
-                <h3 class="text-2xl font-bold text-white mb-4 md:mb-0">Mezclador de Efectos</h3>
-                
-                <!-- Transport Controls -->
-                <div class="flex items-center space-x-3 bg-slate-900/50 px-4 py-2 rounded-lg" id="transportControls">
-                    <button id="playBtn" class="text-emerald-400 hover:text-emerald-300 transition-colors" title="Reproducir">
-                        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4l12 6-12 6z"/></svg>
-                    </button>
-                    <button id="pauseBtn" class="text-amber-400 hover:text-amber-300 hidden transition-colors" title="Pausar">
-                        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z"/></svg>
-                    </button>
-                    <button id="stopBtn" class="text-rose-400 hover:text-rose-300 transition-colors" title="Detener">
-                        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20"><path d="M5 5h10v10H5z"/></svg>
-                    </button>
-                    <div class="text-sm font-mono text-emerald-400 ml-4 track-time" id="timeDisplay">00:00</div>
-                </div>
-            </div>
-            
-            <div class="grid grid-cols-2 md:grid-cols-6 gap-6" id="faderGrid">
-                <!-- Faders will be generated here -->
-            </div>
-
-            <div class="mt-8 flex flex-col md:flex-row justify-between items-center border-t border-slate-700 pt-6">
-                <span class="text-sm text-slate-400 italic text-center md:text-left mb-4 md:mb-0">
-                    <span class="text-emerald-400">► Pre-escucha activa</span> usando tu navegador.<br>Al exportar, se usa FFmpeg para calidad final perfecta.
-                </span>
-                <button id="exportBtn" class="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white font-bold py-3 px-8 rounded-full shadow-lg transform transition hover:scale-105">
-                    Mezclar y Exportar
+            <nav class="flex-1 w-full flex flex-col items-stretch gap-4">
+                <button type="button" class="nav-item nav-item-active flex flex-col items-center py-4 rounded-2xl transition-all w-[84px] mx-auto" data-view="studio" onclick="showView('studio')">
+                    <span class="material-symbols-outlined text-[24px] mb-1">graphic_eq</span>
+                    <span class="font-label-caps text-[11px]">Studio</span>
                 </button>
+                <button type="button" class="nav-item nav-item-inactive flex flex-col items-center py-4 rounded-2xl transition-all w-[84px] mx-auto" data-view="history" onclick="showView('history')">
+                    <span class="material-symbols-outlined text-[24px] mb-1">history</span>
+                    <span class="font-label-caps text-[11px]">Historial</span>
+                </button>
+            </nav>
+            <div class="mt-auto flex flex-col items-center gap-6">
+                <button type="button" onclick="openSettings()" class="material-symbols-outlined text-sidebar/60 hover:text-sidebar transition-colors" title="Ajustes">settings</button>
+                <div class="relative w-10 h-10 rounded-xl bg-black/10 flex items-center justify-center" title="Estado del motor">
+                    <span class="material-symbols-outlined text-[22px] text-sidebar/60">bolt</span>
+                    <span id="engine-dot" class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500 border-2 border-sidebar"></span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ============ MODAL DE AJUSTES ============ -->
+        <div id="settings-modal" class="hidden fixed inset-0 z-[100] items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div class="w-full max-w-lg mx-4 p-6 flex flex-col gap-5 max-h-[85vh] overflow-y-auto custom-scrollbar rounded-2xl border border-theme bg-card">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-accent text-[22px]">settings</span>
+                        <span class="font-label-caps text-[14px] tracking-widest text-main">Ajustes</span>
+                    </div>
+                    <button type="button" onclick="closeSettings()" class="material-symbols-outlined text-muted/60 hover:text-main transition-colors">close</button>
+                </div>
+
+                <div class="flex flex-col gap-2">
+                    <span class="font-label-caps text-[11px] text-muted tracking-widest font-bold">TEMA</span>
+                    <div class="flex gap-3">
+                        <button type="button" class="theme-btn flex-1 py-3 rounded-xl border-2 font-label-caps text-[12px] font-bold transition-all" data-theme-val="dark" onclick="selectTheme('dark')">Oscuro</button>
+                        <button type="button" class="theme-btn flex-1 py-3 rounded-xl border-2 font-label-caps text-[12px] font-bold transition-all" data-theme-val="light" onclick="selectTheme('light')">Claro</button>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2">
+                    <span class="font-label-caps text-[11px] text-muted tracking-widest font-bold">COLOR DE ACENTO</span>
+                    <div class="flex gap-4 items-center">
+                        <button type="button" class="color-btn w-8 h-8 rounded-full transition-all" style="background-color:#0099FF;" data-color-val="blue" onclick="selectColor('blue')"></button>
+                        <button type="button" class="color-btn w-8 h-8 rounded-full transition-all" style="background-color:#77C800;" data-color-val="green" onclick="selectColor('green')"></button>
+                        <button type="button" class="color-btn w-8 h-8 rounded-full transition-all" style="background-color:#8A2BE2;" data-color-val="purple" onclick="selectColor('purple')"></button>
+                        <button type="button" class="color-btn w-8 h-8 rounded-full transition-all" style="background-color:#FF8800;" data-color-val="orange" onclick="selectColor('orange')"></button>
+                        <button type="button" class="color-btn w-8 h-8 rounded-full transition-all" style="background-color:#E62E6B;" data-color-val="pink" onclick="selectColor('pink')"></button>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-1 border-t border-theme pt-4">
+                    <span class="font-label-caps text-[10px] text-muted/60">Motor de separación</span>
+                    <span class="font-data text-[13px] text-main">Demucs v4 &middot; Apple Silicon MPS</span>
+                </div>
+
+                <div class="flex gap-2 justify-end items-center pt-2">
+                    <button type="button" onclick="closeSettings()" class="px-4 py-2 rounded-lg bg-accent text-white font-label-caps text-[12px] hover:brightness-110 transition-all">Cerrar</button>
+                </div>
             </div>
         </div>
+
+        <!-- ============ CONTENIDO PRINCIPAL ============ -->
+        <main class="flex-1 h-full overflow-hidden flex flex-col gap-4">
+
+            <!-- Header -->
+            <div class="flex flex-col md:flex-row justify-between items-end gap-4 shrink-0">
+                <div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="w-2 h-2 rounded-full bg-accent shadow-[0_0_8px_var(--accent)]"></div>
+                        <span class="text-xs font-data text-accent tracking-widest uppercase" id="workspace-status">IDLE: Awaiting Input</span>
+                    </div>
+                    <h1 class="text-4xl font-black font-headline text-main tracking-tighter">Parrot Audio Studio</h1>
+                </div>
+                <div class="flex items-stretch gap-3">
+                    <button type="button" onclick="newProject()" class="btn-secondary px-4 py-2 rounded-xl flex items-center gap-2" title="Empieza una sesión nueva. El trabajo actual queda guardado en el Historial.">
+                        <span class="material-symbols-outlined text-[18px]">add</span>
+                        <span class="font-label-caps text-[11px] tracking-widest uppercase">Nuevo Proyecto</span>
+                    </button>
+                    <div class="glass-card px-4 py-2">
+                        <span class="block text-[10px] text-muted uppercase tracking-widest font-label-caps">Output Format</span>
+                        <span class="text-accent font-data font-bold" id="output-format">WAV 44.1kHz</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vista: Studio -->
+            <div id="view-studio" class="view active flex-1 flex-col gap-4 overflow-hidden">
+
+                <!-- Drop Zone -->
+                <div id="uploadZone" onclick="document.getElementById('fileInput').click()" class="glass-card border-2 border-dashed border-theme flex flex-col items-center justify-center py-6 transition-colors hover:bg-btn-hover hover:border-accent group cursor-pointer shrink-0">
+                    <div id="uploadZone-idle" class="flex flex-col items-center">
+                        <div class="w-12 h-12 bg-btn mb-3 flex items-center justify-center group-hover:bg-accent transition-colors rounded-xl">
+                            <span class="material-symbols-outlined text-muted group-hover:text-white text-2xl">upload_file</span>
+                        </div>
+                        <h3 class="text-lg font-headline font-bold text-main mb-1 uppercase tracking-tight">Drop Audio Core</h3>
+                        <p class="text-muted text-xs text-center max-w-xs">Soporta archivos de audio y video. Máximo 2GB por sesión.</p>
+                    </div>
+                    <div id="uploadZone-processing" class="hidden flex-col items-center gap-3">
+                        <div class="w-10 h-10 rounded-full border-4 border-theme border-t-accent animate-spin"></div>
+                        <h3 class="text-sm font-label-caps font-bold text-accent uppercase tracking-widest" id="upload-processing-text">Procesando audio...</h3>
+                        <p class="text-muted text-xs text-center max-w-xs truncate" id="upload-processing-filename"></p>
+                    </div>
+                    <input type="file" id="fileInput" class="hidden" accept=".mp3,.wav,.mp4,.mkv,.mov" onchange="uploadFile()">
+                </div>
+
+                <!-- Master View -->
+                <div class="glass-card relative flex-1 flex flex-col overflow-hidden p-5 scanline-effect">
+
+                    <div class="flex justify-between items-center mb-3 border-b border-theme pb-2 shrink-0">
+                        <h2 class="font-label-caps font-bold text-[10px] tracking-[0.2em] text-muted uppercase">Master View</h2>
+                        <span class="text-[10px] font-data text-muted" id="time-display">00:00 / 00:00</span>
+                    </div>
+
+                    <div class="flex-1 relative overflow-y-auto custom-scrollbar">
+                        <!-- Empty State -->
+                        <div id="empty-preview" class="absolute inset-0 flex items-center justify-center opacity-40 pointer-events-none">
+                        </div>
+
+                        <!-- Multitrack Container -->
+                        <div id="multitrack-container" class="w-full flex flex-col gap-2 relative z-10 hidden">
+                            <!-- Track rows generados por JS -->
+                        </div>
+
+                        <div class="absolute top-2 right-2 bg-app/80 px-2 py-1 text-[10px] font-data border border-theme rounded z-20" id="badge-decode">
+                            WAITING_UPLOAD
+                        </div>
+                    </div>
+
+                    <div class="relative z-10 flex flex-wrap justify-between items-center bg-app/90 py-3 px-4 mt-3 border border-theme rounded-xl shadow-xl gap-4 shrink-0" id="play-controls" style="display:none;">
+                        <div class="flex items-center gap-6">
+                            <button id="playBtn" onclick="togglePlay()" class="w-12 h-12 bg-accent text-white flex items-center justify-center hover:brightness-110 transition-all rounded-xl shadow-[0_0_15px_var(--accent-light)]">
+                                <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;" id="playIcon">play_arrow</span>
+                            </button>
+
+                            <div class="flex flex-col gap-1.5 border-l border-theme pl-6 h-full justify-center">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-[10px] text-muted font-black tracking-widest w-[50px] font-label-caps">MASTER</span>
+                                    <div class="w-32 relative flex items-center h-[18px]">
+                                        <input type="range" class="eq-slider w-full absolute z-10 m-0" id="vol_master" min="0" max="2" step="0.05" value="1.0" oninput="updateMasterVol(this.value)">
+                                    </div>
+                                    <span class="text-[10px] font-data font-bold text-accent w-[45px] text-right" id="pan_val_master">0.0 dB</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="w-[50px]"></span>
+                                    <div class="w-32 h-[8px] bg-app border border-theme rounded-[3px] relative overflow-hidden flex" id="meter_bg_master">
+                                       <div class="h-full border-r border-red-500/50 absolute z-0" style="left:80%;"></div>
+                                       <div id="meter_fill_master" class="h-full bg-accent transition-[width] duration-75" style="width: 0%; box-shadow: 0 0 6px var(--accent);"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-4 flex-wrap justify-end">
+                            <label class="text-[10px] font-data text-muted flex items-center gap-2 cursor-pointer hover:text-main transition-colors mr-3">
+                                <input type="checkbox" id="master_normalize" class="ui-checkbox">
+                                LOUDNORM DBTP -1.0
+                            </label>
+                            <div class="flex items-center gap-2 border-l border-theme pl-4">
+                                <button onclick="startTranscription('vocals')" id="transcribe_btn_vocals" class="btn-secondary px-4 py-2.5 text-[10px] font-bold tracking-widest uppercase rounded-xl flex items-center gap-1.5" title="Transcribe la pista Vocals con Whisper (local)">
+                                    <span class="material-symbols-outlined text-[16px]">subtitles</span>
+                                    Transcribir
+                                </button>
+                                <span id="transcribe_status_vocals" class="text-[10px] font-data text-muted"></span>
+                                <div id="transcribe_links_vocals" class="hidden items-center gap-2"></div>
+                            </div>
+                            <button onclick="resetMix()" class="btn-secondary px-5 py-2.5 text-[10px] font-bold tracking-widest uppercase rounded-xl">
+                                Reset Mix
+                            </button>
+                            <button id="exportBtn" onclick="mixAudio()" disabled class="bg-accent px-5 py-2.5 text-[10px] font-bold tracking-widest text-white shadow-[0_0_20px_var(--accent-light)] hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:shadow-none uppercase disabled:cursor-not-allowed rounded-xl">
+                                Export Stems
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vista: Historial -->
+            <div id="view-history" class="view flex-col gap-4 h-full overflow-hidden">
+                <div class="glass-card p-4 flex flex-wrap items-center justify-between gap-4 shrink-0">
+                    <div class="flex flex-col gap-0.5 min-w-0">
+                        <span class="font-label-caps text-[11px] tracking-widest text-muted/60">Espacio en disco</span>
+                        <span class="text-[11px] text-muted/70">Borra en el servidor los audios originales, stems separados, mixes y transcripciones ya generados.</span>
+                    </div>
+                    <div class="flex items-center gap-3 shrink-0">
+                        <span id="cleanup-status" class="text-[11px] font-data text-muted"></span>
+                        <button type="button" onclick="cleanupWorkspace()" id="cleanup-btn" class="btn-secondary px-4 py-2 text-[10px] font-bold tracking-widest uppercase rounded-xl flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-[16px]">delete_sweep</span>
+                            Liberar espacio
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 flex-1 flex flex-col gap-3 overflow-hidden">
+                    <div class="flex items-center justify-between gap-2 shrink-0">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-accent text-[20px]">history</span>
+                            <span class="font-label-caps text-[12px] tracking-widest text-muted/60">Historial de trabajos</span>
+                        </div>
+                        <button type="button" onclick="clearHistory()" class="btn-secondary px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase rounded-lg">Vaciar historial</button>
+                    </div>
+                    <p class="text-muted/70 text-[11px] -mt-1 shrink-0">Guardado en este navegador. Si recargas la página por accidente mientras trabajas, el último proyecto se reabre solo.</p>
+                    <div id="history-list" class="flex flex-col gap-2 overflow-y-auto custom-scrollbar flex-1">
+                        <!-- generado por JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer de estado -->
+            <div class="glass-card px-4 py-2 flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-3">
+                    <span id="status-dot" class="w-1.5 h-1.5 rounded-full bg-muted"></span>
+                    <span id="status-text" class="text-muted font-data text-[10px] tracking-widest uppercase">SYSTEM READY</span>
+                </div>
+                <span class="text-muted/70 font-data text-[10px] uppercase tracking-widest">Apple Silicon MPS</span>
+            </div>
+        </main>
     </div>
 
     <!-- JS Logic -->
     <script>
-        const stems = ['vocals', 'drums', 'bass', 'other', 'piano', 'guitar'];
-        const translations = {
-            'vocals': 'Voces (Turistas)',
-            'drums': 'Batería (Ruidos)',
-            'bass': 'Bajos',
-            'other': 'Ambiente',
-            'piano': 'Piano',
-            'guitar': 'Guitarra'
-        };
-        
-        let currentJobId = null;
-        let jobResultPath = null;
-        
-        // Web Audio API Context
-        let audioCtx;
-        let tracks = {};
-        
-        // UI states
-        let muteState = {};
-        let soloState = {};
-        let faderVals = {};
+        const stemsInfo = [
+            { id: "vocals", label: "VOCALS", color: "#ff3366" },
+            { id: "drums", label: "DRUMS", color: "#33ccff" },
+            { id: "bass", label: "BASS", color: "#ffcc00" },
+            { id: "piano", label: "PIANO", color: "#cc33ff" },
+            { id: "guitar", label: "GUITAR", color: "#33ffcc" },
+            { id: "other", label: "OTHER", color: "#ffffff" }
+        ];
+        const stems = stemsInfo.map(s => s.id);
 
-        stems.forEach(stem => {
-            muteState[stem] = false;
-            soloState[stem] = false;
-            faderVals[stem] = 1.0;
-            
-            const mixerGrid = document.querySelector('#faderGrid');
-            mixerGrid.innerHTML += `
-                <div class="flex flex-col items-center bg-slate-700/50 p-4 rounded-xl shadow-inner border border-slate-600/50">
-                    <span class="text-sm font-semibold text-slate-300 text-center h-10 leading-tight mb-2">${translations[stem]}</span>
-                    
-                    <div class="flex space-x-2 mb-6 border border-slate-600 rounded">
-                        <button id="muteBtn_${stem}" class="w-8 h-8 flex items-center justify-center text-xs bg-slate-800 rounded-l text-white transition-colors border-r border-slate-600" title="Mute (Silenciar)">M</button>
-                        <button id="soloBtn_${stem}" class="w-8 h-8 flex items-center justify-center text-xs bg-slate-800 rounded-r text-white transition-colors" title="Solo">S</button>
+        let currentJobId = null;
+        let wavesurfers = {};
+        let activeStem = null;
+
+        function updateMasterVol(val) {
+             const vLabel = document.getElementById('pan_val_master');
+             if(vLabel) {
+                 const db = 20 * Math.log10(val || 0.0001);
+                 vLabel.innerText = Math.max(-60, db).toFixed(1) + " dB";
+             }
+             stems.forEach(stem => {
+                 const input = document.getElementById(`vol_${stem}`);
+                 if(input && wavesurfers[stem]) {
+                     wavesurfers[stem].setVolume((input.value / 2.0) * (val / 1.0));
+                 }
+             });
+        }
+
+        function updateFaderFill(stemId, val) {
+            if (wavesurfers[stemId]) {
+                const masterInput = document.getElementById('vol_master');
+                const masterVol = masterInput ? parseFloat(masterInput.value) : 1.0;
+                wavesurfers[stemId].setVolume((val / 2.0) * (masterVol / 1.0));
+            }
+        }
+
+        function updateEQ(s_id) {
+            if(!wavesurfers[s_id]) return;
+            // Almacena el estado para el eventual POST de render (biquad gain nodes en tiempo real pendiente).
+        }
+
+        function updateHPF(s_id, val) {
+            const label = document.getElementById(`hpf_val_${s_id}`);
+            if (label) label.innerText = (val == 0) ? 'OFF' : `${val}Hz`;
+        }
+
+        // ============ Transcripción local con Whisper (pista Vocals) ============
+        function resetTranscription(s_id = 'vocals') {
+            const btn = document.getElementById(`transcribe_btn_${s_id}`);
+            const statusEl = document.getElementById(`transcribe_status_${s_id}`);
+            const linksEl = document.getElementById(`transcribe_links_${s_id}`);
+            if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">subtitles</span> Transcribir'; }
+            if (statusEl) statusEl.innerText = '';
+            if (linksEl) { linksEl.classList.add('hidden'); linksEl.classList.remove('flex'); linksEl.innerHTML = ''; }
+        }
+
+        async function startTranscription(s_id) {
+            if (!currentJobId) return;
+            const btn = document.getElementById(`transcribe_btn_${s_id}`);
+            const statusEl = document.getElementById(`transcribe_status_${s_id}`);
+            const linksEl = document.getElementById(`transcribe_links_${s_id}`);
+
+            btn.disabled = true;
+            btn.innerText = 'Transcribiendo...';
+            statusEl.innerText = 'Iniciando...';
+            linksEl.classList.add('hidden');
+            linksEl.classList.remove('flex');
+            linksEl.innerHTML = '';
+
+            try {
+                const res = await fetch(`/api/v1/transcribe/${currentJobId}?stem=${s_id}`, { method: 'POST' });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || 'No se pudo iniciar la transcripción.');
+                }
+                pollTranscription(currentJobId, s_id);
+            } catch (e) {
+                statusEl.innerText = e.message;
+                btn.disabled = false;
+                btn.innerText = 'Transcribir';
+            }
+        }
+
+        function renderTranscriptionState(jobId, s_id, t) {
+            const btn = document.getElementById(`transcribe_btn_${s_id}`);
+            const statusEl = document.getElementById(`transcribe_status_${s_id}`);
+            const linksEl = document.getElementById(`transcribe_links_${s_id}`);
+            if (!btn || !statusEl || !linksEl || !t) return;
+
+            if (t.status === 'completed') {
+                statusEl.innerText = `Listo${t.language ? ' (' + t.language + ')' : ''}`;
+                btn.disabled = false;
+                btn.innerText = 'Transcribir de nuevo';
+                linksEl.classList.remove('hidden');
+                linksEl.classList.add('flex');
+                linksEl.innerHTML = `
+                    <a href="/workspace/jobs/${jobId}/${t.srt}" download class="text-accent font-data text-[10px] underline underline-offset-2 hover:brightness-110">.srt</a>
+                    <a href="/workspace/jobs/${jobId}/${t.txt}" download class="text-accent font-data text-[10px] underline underline-offset-2 hover:brightness-110">.txt</a>
+                `;
+            } else if (t.status === 'failed') {
+                statusEl.innerText = `Error: ${t.error || 'desconocido'}`;
+                btn.disabled = false;
+                btn.innerText = 'Reintentar';
+            } else {
+                statusEl.innerText = 'Transcribiendo (puede tardar unos minutos)...';
+                btn.disabled = true;
+                btn.innerText = 'Transcribiendo...';
+            }
+        }
+
+        function pollTranscription(jobId, s_id) {
+            const interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/v1/status/${jobId}`);
+                    const data = await res.json();
+                    const t = data.transcription;
+                    if (!t) return;
+
+                    renderTranscriptionState(jobId, s_id, t);
+                    if (t.status === 'completed' || t.status === 'failed') clearInterval(interval);
+                } catch (e) {
+                    console.error('Transcription polling error', e);
+                }
+            }, 3000);
+        }
+
+        function toggleFX(stemId) {
+             const drawer = document.getElementById(`fx_drawer_${stemId}`);
+             if (drawer) {
+                 if (drawer.classList.contains('hidden')) {
+                     drawer.classList.remove('hidden');
+                     drawer.classList.add('flex');
+                 } else {
+                     drawer.classList.add('hidden');
+                     drawer.classList.remove('flex');
+                 }
+             }
+        }
+
+        function buildMultitrackUI() {
+            const container = document.getElementById('multitrack-container');
+            container.innerHTML = '';
+
+            stemsInfo.forEach(stem => {
+                const s_id = stem.id;
+                const html = `
+                <div id="track-row-${s_id}" class="waveform-row flex flex-col border border-theme bg-input transition-colors mb-2 rounded-xl overflow-hidden">
+                    <div class="flex flex-row w-full h-[110px] cursor-pointer" onclick="selectTrack('${s_id}')">
+                        <!-- Left Control Panel (DAW style) -->
+                        <div class="w-48 flex-shrink-0 flex bg-card border-r border-theme select-none relative" onclick="event.stopPropagation();">
+                            <!-- Vertical Meter -->
+                            <div class="w-2 h-[110px] bg-app border-r border-theme/50 flex flex-col justify-end relative">
+                                <div class="w-full h-[60%] border-t border-red-500/50 absolute top-0 z-0"></div>
+                                <div id="meter_fill_${s_id}" class="w-full transition-[height] duration-75" style="height: 0%; background: ${stem.color}; box-shadow: 0 0 8px ${stem.color};"></div>
+                            </div>
+
+                            <!-- Controls Content -->
+                            <div class="flex flex-col flex-1">
+                                <!-- Header -->
+                                <div class="bg-btn px-3 py-1 flex justify-between items-center border-b border-theme">
+                                    <span class="text-[11px] font-data font-bold truncate tracking-widest uppercase shadow-sm" style="color: ${stem.color};">${stem.label}</span>
+                                    <button onclick="toggleFX('${s_id}')" class="text-[9px] font-bold bg-input hover:bg-accent hover:text-white hover:border-accent px-1.5 py-[1px] rounded-[3px] border border-theme text-muted transition-all">FX</button>
+                                </div>
+
+                                <!-- Mute / Solo -->
+                                <div class="flex border-b border-theme h-[24px]">
+                                    <button id="btn_m_${s_id}" class="flex-1 text-[10px] font-black bg-btn hover:bg-btn-hover text-muted transition-colors border-r border-theme" onclick="toggleMute('${s_id}')">M</button>
+                                    <button id="btn_s_${s_id}" class="flex-1 text-[10px] font-black bg-btn hover:bg-btn-hover text-muted transition-colors" onclick="toggleSolo('${s_id}')">S</button>
+                                </div>
+
+                                <!-- Tiny sliders -->
+                                <div class="px-3 py-1.5 flex flex-col gap-2.5 justify-center flex-1 bg-card">
+                                    <div class="flex items-center gap-2" title="Volume">
+                                        <span class="material-symbols-outlined text-[13px] text-muted/60 pl-[1px]">volume_up</span>
+                                        <input type="range" class="eq-slider flex-1" id="vol_${s_id}" min="0" max="2" step="0.05" value="1.0" oninput="updateFaderFill('${s_id}', this.value)">
+                                    </div>
+                                    <div class="flex items-center gap-2" title="Pan">
+                                        <span class="text-[9px] text-muted/60 font-bold tracking-tighter">PAN</span>
+                                        <input type="range" class="eq-slider flex-1" min="-1" max="1" step="0.1" value="0">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Waveform Area -->
+                        <div class="flex-1 flex flex-col relative bg-app">
+                            <!-- Y-axis scale -->
+                            <div class="absolute left-0 top-0 bottom-0 w-8 border-r border-theme/30 flex flex-col justify-between items-center py-1 bg-card/50 z-10 pointer-events-none">
+                                <span class="text-[8px] font-data text-muted/80 leading-none">10</span>
+                                <span class="text-[8px] font-data text-muted/80 leading-none">5</span>
+                                <span class="text-[8px] font-data text-accent/60 leading-none">0</span>
+                                <span class="text-[8px] font-data text-muted/80 leading-none">-5</span>
+                                <span class="text-[8px] font-data text-muted/80 leading-none">-10</span>
+                            </div>
+
+                            <div id="wf-${s_id}" class="w-full h-[110px] relative z-0 pl-8 pointer-events-none bg-gradient-to-r from-[var(--bg-app)] via-[var(--bg-main)] to-[var(--bg-app)]"></div>
+                        </div>
                     </div>
 
-                    <input type="range" orient="vertical" min="0" max="1.5" step="0.05" value="1.0" id="vol_${stem}" class="mb-4 accent-emerald-400 h-32">
-                    <span id="val_${stem}" class="text-xs text-emerald-400 font-mono mt-1 w-12 text-center bg-slate-900 rounded px-1 py-1">1.00</span>
-                </div>
-            `;
-        });
+                    <!-- FX Drawer (Hidden by default) -->
+                    <div id="fx_drawer_${s_id}" class="hidden flex-col bg-card border-t border-theme p-3 pl-[192px]" onclick="event.stopPropagation();">
+                        <div class="flex gap-10 items-center pl-6">
+                            <!-- Gate -->
+                            <label class="flex items-center gap-3 cursor-pointer text-[10px] font-headline text-muted hover:text-main transition-colors">
+                                <span class="font-bold tracking-widest">GATE</span>
+                                <div class="relative w-5 h-5 flex items-center justify-center border border-theme bg-input rounded-[2px]">
+                                    <input type="checkbox" id="gate_${s_id}" class="absolute opacity-0 w-full h-full cursor-pointer peer">
+                                    <div class="w-3 h-3 bg-transparent peer-checked:bg-accent rounded-[1px] transition-colors shadow-[0_0_8px_var(--accent-light)]"></div>
+                                </div>
+                            </label>
 
-        function updateGains() {
-            if(!audioCtx) return;
-            const isAnySolo = stems.some(s => soloState[s]);
-            
-            stems.forEach(s => {
-                let targetVol = faderVals[s];
-                if (muteState[s]) targetVol = 0;
-                if (isAnySolo && !soloState[s]) targetVol = 0;
-                
-                if(tracks[s] && tracks[s].gainNode) {
-                    // Smooth transition to avoid clicking noises
-                    tracks[s].gainNode.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.05);
+                            <!-- High-Pass Filter: corta retumbe de viento / rumble de baja frecuencia -->
+                            <div class="flex items-center gap-2 pl-6 border-l border-theme" title="Filtro pasa-altos: elimina el retumbe del viento sin afectar voces ni graznidos">
+                                <span class="text-[10px] text-muted font-bold tracking-widest">HPF</span>
+                                <input type="range" id="hpf_${s_id}" min="0" max="300" step="10" value="0" class="eq-slider w-20" oninput="updateHPF('${s_id}', this.value)" title="Frecuencia de corte (Hz)">
+                                <span class="text-[9px] font-data text-accent w-9 text-right" id="hpf_val_${s_id}">OFF</span>
+                            </div>
+
+                            <!-- EQ -->
+                            <div class="flex gap-6 items-center pl-6 border-l border-theme">
+                                <span class="text-[10px] text-muted font-bold tracking-widest underline decoration-theme underline-offset-4">EQ (3-BAND)</span>
+
+                                <div class="flex items-center gap-2 w-28">
+                                    <span class="text-[9px] font-headline font-bold text-muted w-8">HIGH</span>
+                                    <input type="range" id="treble_${s_id}" min="-20" max="20" value="0" class="eq-slider flex-1" oninput="updateEQ('${s_id}')" title="High / Treble">
+                                </div>
+                                <div class="flex items-center gap-2 w-28">
+                                    <span class="text-[9px] font-headline font-bold text-muted w-8">MID</span>
+                                    <input type="range" id="mid_${s_id}" min="-20" max="20" value="0" class="eq-slider flex-1" oninput="updateEQ('${s_id}')" title="Mid frequencies">
+                                </div>
+                                <div class="flex items-center gap-2 w-28">
+                                    <span class="text-[9px] font-headline font-bold text-muted w-8">LOW</span>
+                                    <input type="range" id="bass_${s_id}" min="-20" max="20" value="0" class="eq-slider flex-1" oninput="updateEQ('${s_id}')" title="Low / Bass">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                `;
+                container.innerHTML += html;
+            });
+        }
+
+        buildMultitrackUI();
+
+        // Global Level Meters State
+        let audioCtx;
+        let analysers = {};
+        let dataArrays = {};
+
+        function initMeters() {
+            if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function renderMeters() {
+            requestAnimationFrame(renderMeters);
+            if (!currentJobId) return;
+
+            let masterSum = 0;
+            let count = 0;
+
+            stems.forEach(stem => {
+                const volInput = document.getElementById(`vol_${stem}`);
+                const meter = document.getElementById(`meter_fill_${stem}`);
+                if (!volInput || !meter) return;
+
+                let vol = parseFloat(volInput.value);
+                let fillPct = 0;
+
+                if(analysers[stem] && wavesurfers[stem] && wavesurfers[stem].isPlaying() && !wavesurfers[stem].getMuted()) {
+                    analysers[stem].getByteFrequencyData(dataArrays[stem]);
+                    let sum = 0;
+                    const data = dataArrays[stem];
+                    for(let i=0; i<data.length; i++) sum += data[i];
+                    const avg = sum / data.length;
+
+                    fillPct = (avg / 255) * 100 * 1.5;
+                    fillPct = fillPct * (vol / 1.0);
+                    if (fillPct > 100) fillPct = 100;
+
+                    masterSum += fillPct;
+                    count++;
+                }
+                meter.style.height = `${fillPct}%`;
+            });
+
+            // Master meter
+            const masterMeter = document.getElementById('meter_fill_master');
+            if(masterMeter) {
+                const masterVolInput = document.getElementById('vol_master');
+                const masterVol = masterVolInput ? parseFloat(masterVolInput.value) : 1.0;
+                let finalMaster = count > 0 ? (masterSum / count) : 0;
+                finalMaster = finalMaster * (masterVol / 1.0) * 1.2;
+                if(finalMaster > 100) finalMaster = 100;
+                masterMeter.style.width = `${finalMaster}%`;
+            }
+        }
+        requestAnimationFrame(renderMeters);
+
+        function selectTrack(stemId) {
+            if(!currentJobId) return; // Only allow selection if tracks loaded
+
+            activeStem = stemId;
+            stems.forEach(id => {
+                const row = document.getElementById(`track-row-${id}`);
+                if (id === stemId) {
+                    if (row) row.classList.add('border-accent');
+                    if (row) row.classList.remove('border-theme');
+                } else {
+                    if (row) row.classList.remove('border-accent');
+                    if (row) row.classList.add('border-theme');
                 }
             });
         }
 
-        // Add event listeners to faders and buttons
-        stems.forEach(stem => {
-            document.getElementById(`vol_${stem}`).addEventListener('input', (e) => {
-                const vol = parseFloat(e.target.value);
-                document.getElementById(`val_${stem}`).textContent = vol.toFixed(2);
-                faderVals[stem] = vol;
-                updateGains();
-            });
-
-            const muteBtn = document.getElementById(`muteBtn_${stem}`);
-            muteBtn.addEventListener('click', () => {
-                muteState[stem] = !muteState[stem];
-                muteBtn.classList.toggle('bg-rose-500', muteState[stem]);
-                muteBtn.classList.toggle('bg-slate-800', !muteState[stem]);
-                updateGains();
-            });
-
-            const soloBtn = document.getElementById(`soloBtn_${stem}`);
-            soloBtn.addEventListener('click', () => {
-                soloState[stem] = !soloState[stem];
-                soloBtn.classList.toggle('bg-amber-500', soloState[stem]);
-                soloBtn.classList.toggle('bg-slate-800', !soloState[stem]);
-                updateGains();
-            });
-        });
-
-        // Initialize Web Audio Engine
-        function initAudioEngine(resultPath) {
-            if(!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function previewChannel(s_id) {
+            // Solo this track and play preview explicitly
+            toggleSolo(s_id, true);
+            const ws = wavesurfers[s_id];
+            if(ws && !ws.isPlaying()) {
+                togglePlay(); // plays all loaded, but only 's_id' is unmuted
             }
-            
+        }
+
+        function toggleMute(s_id) {
+            if(window.event) window.event.stopPropagation();
+            if(!wavesurfers[s_id]) return;
+            const btn = document.getElementById(`btn_m_${s_id}`);
+            const isMuted = wavesurfers[s_id].getMuted();
+            wavesurfers[s_id].setMuted(!isMuted);
+
+            if (!isMuted) {
+                // Now Muted
+                btn.className = `flex-1 text-[10px] font-black bg-red-600/50 text-white transition-colors border-r border-theme`;
+            } else {
+                // Unmuted
+                btn.className = `flex-1 text-[10px] font-black bg-btn hover:bg-btn-hover text-muted transition-colors border-r border-theme`;
+            }
+        }
+
+        let soloState = null;
+        function toggleSolo(s_id, forceSolo = false) {
+            if(window.event) window.event.stopPropagation();
+            if(!wavesurfers[s_id]) return;
+
+            const btn = document.getElementById(`btn_s_${s_id}`);
+            if (soloState === s_id && !forceSolo) {
+                // disable solo
+                soloState = null;
+                stems.forEach(id => {
+                    wavesurfers[id]?.setMuted(false);
+                    const b = document.getElementById(`btn_s_${id}`);
+                    b.className = "flex-1 text-[10px] font-black bg-btn hover:bg-btn-hover text-muted transition-colors";
+                });
+            } else {
+                // activate solo
+                soloState = s_id;
+                stems.forEach(id => {
+                    wavesurfers[id]?.setMuted(id !== s_id);
+                    const b = document.getElementById(`btn_s_${id}`);
+                    if(id === s_id) {
+                        b.className = "flex-1 text-[10px] font-black bg-green-600/50 text-white transition-colors";
+                    } else {
+                        b.className = "flex-1 text-[10px] font-black bg-btn hover:bg-btn-hover text-muted transition-colors";
+                    }
+                });
+            }
+        }
+
+        function resetMix() {
             stems.forEach(stem => {
-                const audio = new Audio(`/${resultPath}/${stem}.wav`);
-                audio.crossOrigin = "anonymous";
-                audio.preload = "auto";
-                
-                const source = audioCtx.createMediaElementSource(audio);
-                const gain = audioCtx.createGain();
-                
-                source.connect(gain);
-                gain.connect(audioCtx.destination);
-                
-                tracks[stem] = { audio, gainNode: gain };
+                const volInput = document.getElementById(`vol_${stem}`);
+                if(volInput) volInput.value = 1.0;
+                updateFaderFill(stem, 1.0);
+                const gate = document.getElementById(`gate_${stem}`);
+                if(gate) gate.checked = false;
+                const hpf = document.getElementById(`hpf_${stem}`);
+                if(hpf) hpf.value = 0;
+                updateHPF(stem, 0);
+                const tr = document.getElementById(`treble_${stem}`);
+                if(tr) tr.value = 0;
+                const md = document.getElementById(`mid_${stem}`);
+                if(md) md.value = 0;
+                const bs = document.getElementById(`bass_${stem}`);
+                if(bs) bs.value = 0;
             });
+            const master_norm = document.getElementById('master_normalize');
+            if(master_norm) master_norm.checked = false;
+        }
 
-            // Master time tracker on the first track (vocals usually present)
-            tracks['vocals'].audio.addEventListener('timeupdate', () => {
-                const cur = tracks['vocals'].audio.currentTime;
-                const m = Math.floor(cur / 60);
-                const s = Math.floor(cur % 60).toString().padStart(2, '0');
-                document.getElementById('timeDisplay').textContent = `${m}:${s}`;
+        function newProject() {
+            // El job actual no se borra: sigue disponible en el Historial para reanudarlo.
+            // Esto solo limpia la vista de trabajo para empezar de nuevo.
+            Object.values(wavesurfers).forEach(ws => { if (ws) ws.destroy(); });
+            wavesurfers = {};
+            analysers = {};
+            dataArrays = {};
+            activeStem = null;
+            soloState = null;
+            currentJobId = null;
+            clearActiveJob();
+
+            const mc = document.getElementById('multitrack-container');
+            mc.classList.add('hidden');
+            buildMultitrackUI();
+
+            document.getElementById('play-controls').style.display = 'none';
+            document.getElementById('empty-preview').classList.remove('opacity-0');
+            document.getElementById('empty-preview').classList.add('opacity-40');
+            document.getElementById('time-display').innerText = '00:00 / 00:00';
+            document.getElementById('exportBtn').disabled = true;
+            document.getElementById('exportBtn').innerText = 'Export Stems';
+            document.getElementById('fileInput').value = '';
+
+            resetMix();
+            resetTranscription();
+            resetUploadZone();
+
+            setStatus('IDLE: AWAITING INPUT', false);
+            document.getElementById('badge-decode').innerText = 'WAITING_UPLOAD';
+            document.getElementById('badge-decode').className = "absolute top-2 right-2 z-20 bg-app/80 px-2 py-1 text-[10px] font-data border border-theme text-muted rounded";
+
+            showView('studio');
+        }
+
+        function setStatus(text, pulsing = false, isError = false) {
+            const textEl = document.getElementById('status-text');
+            const dotEl = document.getElementById('status-dot');
+            const wsStatus = document.getElementById('workspace-status');
+            const badgeDecode = document.getElementById('badge-decode');
+
+            textEl.innerText = text;
+            textEl.className = `font-data text-[10px] tracking-widest uppercase ${isError ? 'text-red-400' : 'text-muted'}`;
+            wsStatus.innerText = text;
+
+            if (pulsing && !isError) {
+                dotEl.className = "w-1.5 h-1.5 rounded-full bg-accent animate-pulse shadow-[0_0_8px_var(--accent)]";
+                badgeDecode.innerText = "ACTIVE_PROCESS";
+                badgeDecode.className = "absolute top-2 right-2 z-20 bg-app/80 px-2 py-1 text-[10px] font-data border border-accent/40 text-accent animate-pulse rounded";
+            } else if (isError) {
+                dotEl.className = "w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_red]";
+                badgeDecode.innerText = "ERROR_STATE";
+                badgeDecode.className = "absolute top-2 right-2 z-20 bg-app/80 px-2 py-1 text-[10px] font-data border border-red-500/40 text-red-500 rounded";
+            } else {
+                dotEl.className = "w-1.5 h-1.5 rounded-full bg-muted";
+                badgeDecode.innerText = "DECODE_READY";
+                badgeDecode.className = "absolute top-2 right-2 z-20 bg-app/80 px-2 py-1 text-[10px] font-data border border-theme text-muted rounded";
+            }
+        }
+
+        function showUploadProcessing(filename, text) {
+            document.getElementById('uploadZone').classList.add('pointer-events-none');
+            document.getElementById('uploadZone-idle').classList.add('hidden');
+            document.getElementById('uploadZone-processing').classList.remove('hidden');
+            document.getElementById('uploadZone-processing').classList.add('flex');
+            document.getElementById('upload-processing-filename').innerText = filename;
+            document.getElementById('upload-processing-text').innerText = text || 'Procesando audio...';
+        }
+
+        function resetUploadZone() {
+            const zone = document.getElementById('uploadZone');
+            zone.classList.remove('pointer-events-none', 'hidden');
+            document.getElementById('uploadZone-idle').classList.remove('hidden');
+            document.getElementById('uploadZone-processing').classList.add('hidden');
+            document.getElementById('uploadZone-processing').classList.remove('flex');
+        }
+
+        // ============ Historial de trabajos (persistido en localStorage) ============
+        // Sobrevive a un F5: el backend no pierde el job ni los stems ya separados
+        // mientras el servidor siga corriendo, solo la referencia que tenía el navegador.
+        const HISTORY_KEY = 'parrot_job_history';
+        const ACTIVE_JOB_KEY = 'parrot_active_job';
+
+        function getHistory() {
+            try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; }
+            catch(e) { return []; }
+        }
+        function saveHistory(list) {
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+        }
+        function addHistoryEntry(entry) {
+            const list = getHistory();
+            list.unshift(entry);
+            saveHistory(list);
+            renderHistoryList();
+        }
+        function updateHistoryStatus(jobId, status) {
+            const list = getHistory();
+            const item = list.find(j => j.job_id === jobId);
+            if (item) {
+                item.status = status;
+                saveHistory(list);
+                renderHistoryList();
+            }
+        }
+        function removeHistoryEntry(jobId) {
+            saveHistory(getHistory().filter(j => j.job_id !== jobId));
+            if (localStorage.getItem(ACTIVE_JOB_KEY) === jobId) localStorage.removeItem(ACTIVE_JOB_KEY);
+            renderHistoryList();
+        }
+        function clearHistory() {
+            localStorage.removeItem(HISTORY_KEY);
+            localStorage.removeItem(ACTIVE_JOB_KEY);
+            renderHistoryList();
+        }
+        function clearActiveJob() {
+            localStorage.removeItem(ACTIVE_JOB_KEY);
+        }
+
+        async function cleanupWorkspace() {
+            if (!confirm('Esto borra permanentemente todos los audios, stems y transcripciones generados en el servidor (no solo este historial). ¿Continuar?')) return;
+
+            const btn = document.getElementById('cleanup-btn');
+            const statusEl = document.getElementById('cleanup-status');
+            btn.disabled = true;
+            statusEl.innerText = 'Liberando espacio...';
+
+            try {
+                const res = await fetch('/api/v1/cleanup', { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'No se pudo liberar espacio.');
+
+                statusEl.innerText = `Se liberaron ${data.freed_human}.`;
+                clearHistory();
+                newProject();
+                showView('history');
+            } catch (e) {
+                statusEl.innerText = e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function historyStatusBadge(status) {
+            switch (status) {
+                case 'completed': return { text: 'Completado', cls: 'text-accent border-accent/40 bg-accent/10' };
+                case 'failed': return { text: 'Error', cls: 'text-red-400 border-red-500/40 bg-red-500/10' };
+                case 'unavailable': return { text: 'No disponible', cls: 'text-muted border-theme' };
+                default: return { text: 'Procesando...', cls: 'text-muted border-theme' };
+            }
+        }
+
+        function renderHistoryList() {
+            const container = document.getElementById('history-list');
+            if (!container) return;
+            const list = getHistory();
+            if (list.length === 0) {
+                container.innerHTML = `<p class="font-data text-[13px] text-muted/40">Todavía no hay trabajos en el historial.</p>`;
+                return;
+            }
+            container.innerHTML = list.map(item => {
+                const badge = historyStatusBadge(item.status);
+                const date = new Date(item.created_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' });
+                return `
+                <div class="flex items-center justify-between gap-4 bg-btn/40 border border-theme rounded-xl px-4 py-3 shrink-0">
+                    <div class="flex flex-col gap-1 min-w-0">
+                        <span class="font-data text-[13px] text-main truncate">${item.filename}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[9px] font-label-caps text-muted">${date}</span>
+                            <span class="text-[9px] font-label-caps px-2 py-0.5 rounded-full border ${badge.cls}">${badge.text}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button onclick="resumeJob('${item.job_id}')" class="btn-secondary px-3 py-2 text-[10px] font-bold tracking-widest uppercase rounded-lg">Reanudar</button>
+                        <button onclick="removeHistoryEntry('${item.job_id}')" class="material-symbols-outlined text-muted/50 hover:text-red-400 transition-colors text-[18px]" title="Quitar del historial">close</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function resumeJob(jobId) {
+            try {
+                const res = await fetch(`/api/v1/status/${jobId}`);
+                if (!res.ok) throw new Error('not_found');
+                const data = await res.json();
+
+                if (data.status === 'completed') {
+                    currentJobId = jobId;
+                    localStorage.setItem(ACTIVE_JOB_KEY, jobId);
+                    updateHistoryStatus(jobId, 'completed');
+                    document.getElementById('uploadZone').classList.add('hidden');
+                    document.getElementById('exportBtn').disabled = false;
+                    document.getElementById('empty-preview').classList.replace('opacity-40', 'opacity-0');
+                    document.getElementById('badge-decode').innerText = "TRACKS_MOUNTED";
+                    document.getElementById('badge-decode').className = "absolute top-2 right-2 z-20 bg-app/80 px-2 py-1 text-[10px] font-data border border-accent/40 text-accent bg-accent/10 rounded";
+                    setStatus("TRABAJO RECUPERADO. LISTO.", false);
+                    resetTranscription();
+                    if (data.transcription) renderTranscriptionState(jobId, 'vocals', data.transcription);
+                    initMultitrack(jobId);
+                } else if (data.status === 'failed') {
+                    updateHistoryStatus(jobId, 'failed');
+                    clearActiveJob();
+                    setStatus(`Este trabajo falló: ${data.error || 'error desconocido'}`, false, true);
+                } else {
+                    // Sigue en curso en el backend (queued/processing): retomamos el polling.
+                    currentJobId = jobId;
+                    localStorage.setItem(ACTIVE_JOB_KEY, jobId);
+                    const entry = getHistory().find(j => j.job_id === jobId);
+                    showUploadProcessing(entry ? entry.filename : 'archivo', 'Separando pistas con Demucs...');
+                    document.getElementById('uploadZone').classList.remove('hidden');
+                    document.getElementById('exportBtn').disabled = true;
+                    pollStatus(jobId);
+                }
+            } catch (e) {
+                updateHistoryStatus(jobId, 'unavailable');
+                clearActiveJob();
+                setStatus("Este trabajo ya no está disponible en el servidor.", false, true);
+            }
+            showView('studio');
+        }
+
+        function showView(name) {
+            document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-' + name).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.classList.toggle('nav-item-active', el.dataset.view === name);
+                el.classList.toggle('nav-item-inactive', el.dataset.view !== name);
             });
-            
-            tracks['vocals'].audio.addEventListener('ended', stopAll);
-            updateGains();
+            if (name === 'history') renderHistoryList();
         }
 
-        const playBtn = document.getElementById('playBtn');
-        const pauseBtn = document.getElementById('pauseBtn');
-        const stopBtn = document.getElementById('stopBtn');
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput').files[0];
+            if (!fileInput) return;
 
-        function playAll() {
-            if(audioCtx.state === 'suspended') audioCtx.resume();
-            // Start all files simultaneously
-            stems.forEach(s => tracks[s].audio.play());
-            playBtn.classList.add('hidden');
-            pauseBtn.classList.remove('hidden');
-        }
-
-        function pauseAll() {
-            stems.forEach(s => tracks[s].audio.pause());
-            pauseBtn.classList.add('hidden');
-            playBtn.classList.remove('hidden');
-        }
-
-        function stopAll() {
-            pauseAll();
-            stems.forEach(s => {
-                tracks[s].audio.currentTime = 0;
-            });
-            document.getElementById('timeDisplay').textContent = "00:00";
-        }
-
-        playBtn.addEventListener('click', playAll);
-        pauseBtn.addEventListener('click', pauseAll);
-        stopBtn.addEventListener('click', stopAll);
-
-        // Upload and Poll logic
-        document.getElementById('fileInput').addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if(!file) return;
-
-            document.getElementById('uploadSec').classList.add('hidden');
-            document.getElementById('progressSec').classList.remove('hidden');
+            setStatus(`UPLOADING ${fileInput.name.toUpperCase()}...`, true);
+            showUploadProcessing(fileInput.name, 'Subiendo archivo...');
+            document.getElementById('exportBtn').disabled = true;
 
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('file', fileInput);
 
             try {
-                const res = await fetch('/upload', { method: 'POST', body: formData });
-                const data = await res.json();
-                currentJobId = data.job_id;
-                pollStatus();
-            } catch (err) {
-                alert("Error al subir el archivo.");
-                console.error(err);
-            }
-        });
-
-        async function pollStatus() {
-            const bar = document.getElementById('progressBar');
-            const txt = document.getElementById('progressText');
-            
-            let visualProgress = 10;
-            const progressInterval = setInterval(() => {
-                if(visualProgress < 90) visualProgress += 2;
-                bar.style.width = visualProgress + '%';
-            }, 1000);
-
-            const check = async () => {
-                try {
-                    const res = await fetch(`/status/${currentJobId}`);
-                    const data = await res.json();
-                    
-                    if (data.status === 'completed') {
-                        clearInterval(progressInterval);
-                        bar.style.width = '100%';
-                        txt.textContent = '¡Separación completada!';
-                        jobResultPath = data.result; 
-                        setTimeout(() => {
-                            document.getElementById('progressSec').classList.add('hidden');
-                            document.getElementById('mixerSec').classList.remove('hidden');
-                            initAudioEngine(jobResultPath); // Initialize the audio player!
-                        }, 1000);
-                    } else if (data.status === 'failed') {
-                        clearInterval(progressInterval);
-                        txt.textContent = 'Error en la separación: ' + data.error;
-                        bar.classList.replace('bg-gradient-to-r', 'bg-red-500');
-                    } else {
-                        setTimeout(check, 3000);
-                    }
-                } catch(e) {
-                    setTimeout(check, 3000);
+                const response = await fetch('/api/v1/separate', { method: 'POST', body: formData });
+                const data = await response.json();
+                if (data.job_id) {
+                    currentJobId = data.job_id;
+                    addHistoryEntry({ job_id: data.job_id, filename: fileInput.name, created_at: Date.now(), status: 'processing' });
+                    localStorage.setItem(ACTIVE_JOB_KEY, data.job_id);
+                    document.getElementById('upload-processing-text').innerText = 'Separando pistas con Demucs...';
+                    pollStatus(currentJobId);
+                } else {
+                    setStatus("UPLOAD FAILED.", false, true);
+                    resetUploadZone();
                 }
-            };
-            check();
+            } catch (e) {
+                setStatus("SERVER CONNECTION ERROR.", false, true);
+                resetUploadZone();
+            }
         }
 
-        // Export logic
-        document.getElementById('exportBtn').addEventListener('click', async () => {
-            const btn = document.getElementById('exportBtn');
-            btn.textContent = 'Mezclando y Generando...';
-            btn.disabled = true;
-            
-            pauseAll(); // Pause playback during export to save resources
+        async function pollStatus(jobId) {
+            const interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/v1/status/${jobId}`);
+                    const data = await res.json();
+                    if (data.status === 'completed') {
+                        clearInterval(interval);
+                        setStatus("SEPARATION COMPLETE. SELECT TRACK TO INSPECT.", false);
 
-            const payload = {};
+                        document.getElementById('exportBtn').disabled = false;
+                        document.getElementById('empty-preview').classList.replace('opacity-40', 'opacity-0');
+                        document.getElementById('badge-decode').innerText = "TRACKS_MOUNTED";
+                        document.getElementById('badge-decode').className = "absolute top-2 right-2 z-20 bg-app/80 px-2 py-1 text-[10px] font-data border border-accent/40 text-accent bg-accent/10 rounded";
+
+                        document.getElementById('uploadZone').classList.add('hidden');
+                        updateHistoryStatus(jobId, 'completed');
+
+                        initMultitrack(jobId);
+                    } else if (data.status === 'failed') {
+                        clearInterval(interval);
+                        setStatus(`Separation Error: ${data.error}`, false, true);
+                        updateHistoryStatus(jobId, 'failed');
+                        clearActiveJob();
+                        resetUploadZone();
+                    } else {
+                        setStatus(`DEMUCS v4 ACTIVE [${jobId.substring(0,8)}...]`, true);
+                    }
+                } catch(e) {
+                    console.error("Polling error", e);
+                }
+            }, 3000);
+        }
+
+        function initMultitrack(jobId) {
+            const mc = document.getElementById('multitrack-container');
+            mc.classList.remove('hidden');
+            document.getElementById('play-controls').style.display = 'flex';
+
+            // Cleanup existing
+            Object.values(wavesurfers).forEach(ws => { if(ws) ws.destroy() });
+            wavesurfers = {};
+
+            let leadWs = null;
+
+            stemsInfo.forEach((stem) => {
+                const s_id = stem.id;
+                const urlPath = `/workspace/jobs/${jobId}/separated/${s_id}.wav`;
+
+                const ws = WaveSurfer.create({
+                    container: `#wf-${s_id}`,
+                    waveColor: stem.color,
+                    progressColor: 'rgba(255,255,255,0.8)',
+                    cursorColor: '#fff',
+                    barWidth: 2,
+                    barGap: 1,
+                    barRadius: 2,
+                    normalize: true,
+                    height: 110,
+                    url: urlPath,
+                    interact: false
+                });
+
+                wavesurfers[s_id] = ws;
+                if (!leadWs) leadWs = ws;
+
+                ws.on('ready', () => {
+                    initMeters();
+                    try {
+                        const media = ws.getMediaElement();
+                        if (!media._hasSource) {
+                            const source = audioCtx.createMediaElementSource(media);
+                            const analyser = audioCtx.createAnalyser();
+                            analyser.fftSize = 256;
+                            source.connect(analyser);
+                            analyser.connect(audioCtx.destination);
+
+                            analysers[s_id] = analyser;
+                            dataArrays[s_id] = new Uint8Array(analyser.frequencyBinCount);
+                            media._hasSource = true;
+                        }
+                    } catch(e) {
+                         console.warn("Could not bind analyser for", s_id, e);
+                    }
+                });
+            });
+
+            // El área real donde se dibuja la onda queda desplazada por el panel de
+            // controles (w-48) y la regla del eje Y (pl-8) de cada fila; usamos el propio
+            // elemento wf-<id> (y su padding) como referencia para mapear x -> tiempo con precisión.
+            function seekToClientX(clientX) {
+                if (!leadWs || !leadWs.getDuration()) return;
+                const refEl = document.getElementById(`wf-${stems[0]}`);
+                if (!refEl) return;
+                const rect = refEl.getBoundingClientRect();
+                const paddingLeft = parseFloat(getComputedStyle(refEl).paddingLeft) || 0;
+                const left = rect.left + paddingLeft;
+                const width = rect.width - paddingLeft;
+                if (width <= 0) return;
+                const pct = Math.max(0, Math.min(1, (clientX - left) / width));
+                const time = pct * leadWs.getDuration();
+                Object.values(wavesurfers).forEach(ws => ws.setTime(time));
+            }
+
+            let scrubbing = false;
+            mc.addEventListener('mousedown', (e) => {
+                if(!leadWs || !leadWs.getDuration()) return;
+                scrubbing = true;
+                seekToClientX(e.clientX);
+            });
+            document.addEventListener('mousemove', (e) => {
+                if (!scrubbing) return;
+                seekToClientX(e.clientX);
+            });
+            document.addEventListener('mouseup', () => {
+                scrubbing = false;
+            });
+
+            leadWs.on('ready', () => {
+                const duration = formatTime(leadWs.getDuration());
+                document.getElementById('time-display').innerText = `00:00 / ${duration}`;
+            });
+
+            leadWs.on('audioprocess', () => {
+                if(!leadWs.isPlaying()) return;
+                const current = formatTime(leadWs.getCurrentTime());
+                const total = formatTime(leadWs.getDuration());
+                document.getElementById('time-display').innerText = `${current} / ${total}`;
+            });
+
+            leadWs.on('finish', () => {
+                document.getElementById('playIcon').innerText = 'play_arrow';
+            });
+
+            // Default select the first track to remove the overlay
+            setTimeout(() => selectTrack('vocals'), 100);
+        }
+
+        function togglePlay() {
+            if(Object.keys(wavesurfers).length === 0) return;
+            const wss = Object.values(wavesurfers);
+            const isPlaying = wss[0].isPlaying();
+            wss.forEach(ws => {
+                if (isPlaying) ws.pause();
+                else ws.play();
+            });
+
+            const icon = document.getElementById('playIcon');
+            icon.innerText = isPlaying ? 'play_arrow' : 'pause';
+        }
+
+        async function mixAudio() {
+            if (!currentJobId) return;
+
+            const exportBtn = document.getElementById('exportBtn');
+            exportBtn.innerText = "RENDERING...";
+            exportBtn.disabled = true;
+            setStatus("RENDERING MASTER BUSS...", true);
+
+            const payload = { normalize: document.getElementById('master_normalize').checked };
             stems.forEach(stem => {
-                let vol = faderVals[stem];
-                const isAnySolo = stems.some(s => soloState[s]);
-                if (muteState[stem]) vol = 0;
-                if (isAnySolo && !soloState[stem]) vol = 0;
-                payload[stem] = vol;
+                payload[stem] = {
+                    volume: parseFloat(document.getElementById(`vol_${stem}`).value),
+                    noise_gate: document.getElementById(`gate_${stem}`).checked,
+                    highpass_freq: parseFloat(document.getElementById(`hpf_${stem}`).value),
+                    bass_gain: parseFloat(document.getElementById(`bass_${stem}`).value),
+                    mid_gain: parseFloat(document.getElementById(`mid_${stem}`).value),
+                    treble_gain: parseFloat(document.getElementById(`treble_${stem}`).value),
+                };
             });
 
             try {
-                const res = await fetch(`/mix/${currentJobId}`, {
+                const res = await fetch(`/api/v1/merge/${currentJobId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                
-                if(!res.ok) throw new Error("Error en el servidor");
-                
                 const data = await res.json();
-                window.location.href = '/' + data.file; 
-                
-                btn.textContent = '¡Descarga Lista!';
-                setTimeout(() => { btn.textContent = 'Mezclar y Exportar'; btn.disabled = false; }, 3000);
+
+                if (res.ok) {
+                    const pathParts = data.output.split('/');
+                    const finalFileName = pathParts[pathParts.length - 1];
+                    const urlPath = `/workspace/jobs/${currentJobId}/${finalFileName}`;
+
+                    setStatus(`RENDER COMPLETE. DOWNLOADING...`, false);
+                    const a = document.createElement('a');
+                    a.href = urlPath;
+                    a.download = finalFileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                } else {
+                    setStatus(`RENDER ERROR: ${data.detail}`, false, true);
+                }
             } catch(e) {
-                alert("Hubo un error al generar la mezcla final.");
-                btn.textContent = 'Mezclar y Exportar';
-                btn.disabled = false;
+                setStatus("FAILED TO MIX AUDIO.", false, true);
+            } finally {
+                exportBtn.innerText = "EXPORT AGAIN";
+                exportBtn.disabled = false;
             }
-        });
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        // ============ Ajustes: tema y acento (persistidos en localStorage) ============
+        function openSettings() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+            document.getElementById('settings-modal').classList.add('flex');
+        }
+        function closeSettings() {
+            document.getElementById('settings-modal').classList.add('hidden');
+            document.getElementById('settings-modal').classList.remove('flex');
+        }
+
+        function selectTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('parrot_ui_theme', theme);
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.toggle('selected', btn.dataset.themeVal === theme);
+            });
+        }
+        function selectColor(color) {
+            document.documentElement.setAttribute('data-color', color);
+            localStorage.setItem('parrot_ui_color', color);
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                btn.classList.toggle('selected', btn.dataset.colorVal === color);
+            });
+        }
+
+        // Restaura preferencias guardadas al cargar
+        (function initTheme() {
+            const theme = localStorage.getItem('parrot_ui_theme') || 'dark';
+            const color = localStorage.getItem('parrot_ui_color') || 'blue';
+            selectTheme(theme);
+            selectColor(color);
+        })();
+
+        // Pinta el historial y, si había un trabajo abierto antes del reload, lo retoma solo.
+        renderHistoryList();
+        (function autoResume() {
+            const jobId = localStorage.getItem(ACTIVE_JOB_KEY);
+            if (jobId) resumeJob(jobId);
+        })();
     </script>
 </body>
 </html>
