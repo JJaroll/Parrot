@@ -54,6 +54,7 @@ app.mount("/workspace", StaticFiles(directory="workspace"), name="workspace")
 # Models
 class StemConfig(BaseModel):
     volume: float = 1.0
+    pan: float = 0.0  # -1.0 (izquierda) .. 1.0 (derecha)
     noise_gate: bool = False
     highpass_freq: float = 0.0
     bass_gain: float = 0.0
@@ -68,6 +69,7 @@ class MergeRequest(BaseModel):
     guitar: StemConfig = StemConfig()
     other: StemConfig = StemConfig()
     normalize: bool = False
+    output_format: str = "wav_44100"
 
 def process_separation_work(job_id: str, file_path: Path):
     try:
@@ -183,6 +185,29 @@ async def cleanup_workspace():
 
     return {"freed_bytes": freed_bytes, "freed_human": _format_size(freed_bytes)}
 
+@app.get("/api/v1/trim/{job_id}")
+async def trim_stem(job_id: str, background_tasks: BackgroundTasks, start: float, end: float, stem: str = "vocals"):
+    """Descarga solo el fragmento [start, end] (segundos) de un stem ya separado, sin fusionar nada."""
+    job = JOBS_DB.get(job_id)
+    if not job or job.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="Job no está listo (separación no completada)")
+
+    stems = job.get("stems", {})
+    if stem not in stems:
+        raise HTTPException(status_code=400, detail=f"Stem inválido: {stem}")
+    if end <= start or start < 0:
+        raise HTTPException(status_code=400, detail="Rango de tiempo inválido")
+
+    try:
+        out_path = mixer_service.trim_stem(Path(stems[stem]), start, end)
+    except Exception as e:
+        logger.error(f"Trim error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    background_tasks.add_task(os.remove, out_path)
+    filename = f"{stem}_{start:.1f}s-{end:.1f}s.wav"
+    return FileResponse(out_path, media_type="audio/wav", filename=filename)
+
 @app.post("/api/v1/merge/{job_id}")
 async def merge_stems(job_id: str, request: MergeRequest):
     """
@@ -206,4 +231,4 @@ async def merge_stems(job_id: str, request: MergeRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)

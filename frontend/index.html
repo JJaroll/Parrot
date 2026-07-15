@@ -213,22 +213,22 @@
 
         <!-- ============ SIDEBAR: identidad fija de Parrot ============ -->
         <aside class="h-full w-[100px] bg-sidebar rounded-[20px] flex flex-col items-center py-8 z-50 text-sidebar shrink-0">
-            <div class="mb-12">
+            <div class="mb-12 cursor-pointer hover:opacity-70 transition-opacity" onclick="openAbout()" title="Sobre Parrot" data-i18n-title="sidebar_logo_tooltip">
                 <span class="font-headline text-[24px] font-bold tracking-tighter">P.</span>
             </div>
             <nav class="flex-1 w-full flex flex-col items-stretch gap-4">
                 <button type="button" class="nav-item nav-item-active flex flex-col items-center py-4 rounded-2xl transition-all w-[84px] mx-auto" data-view="studio" onclick="showView('studio')">
                     <span class="material-symbols-outlined text-[24px] mb-1">graphic_eq</span>
-                    <span class="font-label-caps text-[11px]">Studio</span>
+                    <span class="font-label-caps text-[11px]" data-i18n="nav_studio">Studio</span>
                 </button>
                 <button type="button" class="nav-item nav-item-inactive flex flex-col items-center py-4 rounded-2xl transition-all w-[84px] mx-auto" data-view="history" onclick="showView('history')">
                     <span class="material-symbols-outlined text-[24px] mb-1">history</span>
-                    <span class="font-label-caps text-[11px]">Historial</span>
+                    <span class="font-label-caps text-[11px]" data-i18n="nav_history">Historial</span>
                 </button>
             </nav>
             <div class="mt-auto flex flex-col items-center gap-6">
-                <button type="button" onclick="openSettings()" class="material-symbols-outlined text-sidebar/60 hover:text-sidebar transition-colors" title="Ajustes">settings</button>
-                <div class="relative w-10 h-10 rounded-xl bg-black/10 flex items-center justify-center" title="Estado del motor">
+                <button type="button" onclick="openSettings()" class="material-symbols-outlined text-sidebar/60 hover:text-sidebar transition-colors" title="Ajustes" data-i18n-title="sidebar_settings_tooltip">settings</button>
+                <div class="relative w-10 h-10 rounded-xl bg-black/10 flex items-center justify-center" title="Estado del motor" data-i18n-title="sidebar_engine_tooltip">
                     <span class="material-symbols-outlined text-[22px] text-sidebar/60">bolt</span>
                     <span id="engine-dot" class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500 border-2 border-sidebar"></span>
                 </div>
@@ -241,21 +241,21 @@
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
                         <span class="material-symbols-outlined text-accent text-[22px]">settings</span>
-                        <span class="font-label-caps text-[14px] tracking-widest text-main">Ajustes</span>
+                        <span class="font-label-caps text-[14px] tracking-widest text-main" data-i18n="settings_title">Ajustes</span>
                     </div>
                     <button type="button" onclick="closeSettings()" class="material-symbols-outlined text-muted/60 hover:text-main transition-colors">close</button>
                 </div>
 
                 <div class="flex flex-col gap-2">
-                    <span class="font-label-caps text-[11px] text-muted tracking-widest font-bold">TEMA</span>
+                    <span class="font-label-caps text-[11px] text-muted tracking-widest font-bold" data-i18n="settings_theme_title">TEMA</span>
                     <div class="flex gap-3">
-                        <button type="button" class="theme-btn flex-1 py-3 rounded-xl border-2 font-label-caps text-[12px] font-bold transition-all" data-theme-val="dark" onclick="selectTheme('dark')">Oscuro</button>
-                        <button type="button" class="theme-btn flex-1 py-3 rounded-xl border-2 font-label-caps text-[12px] font-bold transition-all" data-theme-val="light" onclick="selectTheme('light')">Claro</button>
+                        <button type="button" class="theme-btn flex-1 py-3 rounded-xl border-2 font-label-caps text-[12px] font-bold transition-all" data-theme-val="dark" onclick="selectTheme('dark')" data-i18n="settings_theme_dark">Oscuro</button>
+                        <button type="button" class="theme-btn flex-1 py-3 rounded-xl border-2 font-label-caps text-[12px] font-bold transition-all" data-theme-val="light" onclick="selectTheme('light')" data-i18n="settings_theme_light">Claro</button>
                     </div>
                 </div>
 
                 <div class="flex flex-col gap-2">
-                    <span class="font-label-caps text-[11px] text-muted tracking-widest font-bold">COLOR DE ACENTO</span>
+                    <span class="font-label-caps text-[11px] text-muted tracking-widest font-bold" data-i18n="settings_color_title">COLOR DE ACENTO</span>
                     <div class="flex gap-4 items-center">
                         <button type="button" class="color-btn w-8 h-8 rounded-full transition-all" style="background-color:#0099FF;" data-color-val="blue" onclick="selectColor('blue')"></button>
                         <button type="button" class="color-btn w-8 h-8 rounded-full transition-all" style="background-color:#77C800;" data-color-val="green" onclick="selectColor('green')"></button>
@@ -265,13 +265,54 @@
                     </div>
                 </div>
 
+                <div class="flex flex-col gap-2">
+                    <span class="font-label-caps text-[11px] text-muted tracking-widest font-bold" data-i18n="settings_language_title">Idioma</span>
+                    <div class="flex gap-2">
+                        <button type="button" class="lang-btn btn-secondary flex-1 py-2 rounded-lg font-label-caps text-[11px] transition-colors" data-lang="es" onclick="applyLanguage('es')">Español</button>
+                        <button type="button" class="lang-btn btn-secondary flex-1 py-2 rounded-lg font-label-caps text-[11px] transition-colors" data-lang="en" onclick="applyLanguage('en')">English</button>
+                        <button type="button" class="lang-btn btn-secondary flex-1 py-2 rounded-lg font-label-caps text-[11px] transition-colors" data-lang="ja" onclick="applyLanguage('ja')">日本語</button>
+                    </div>
+                </div>
+
                 <div class="flex flex-col gap-1 border-t border-theme pt-4">
-                    <span class="font-label-caps text-[10px] text-muted/60">Motor de separación</span>
+                    <span class="font-label-caps text-[10px] text-muted/60" data-i18n="settings_engine_label">Motor de separación</span>
                     <span class="font-data text-[13px] text-main">Demucs v4 &middot; Apple Silicon MPS</span>
                 </div>
 
                 <div class="flex gap-2 justify-end items-center pt-2">
-                    <button type="button" onclick="closeSettings()" class="px-4 py-2 rounded-lg bg-accent text-white font-label-caps text-[12px] hover:brightness-110 transition-all">Cerrar</button>
+                    <button type="button" onclick="closeSettings()" class="px-4 py-2 rounded-lg bg-accent text-white font-label-caps text-[12px] hover:brightness-110 transition-all" data-i18n="common_close">Cerrar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ MODAL "SOBRE" (About): se abre al hacer clic en el logo "P." de la barra lateral ============ -->
+        <div id="about-modal" class="hidden fixed inset-0 z-[100] items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div class="w-full max-w-sm mx-4 p-6 flex flex-col items-center gap-3 rounded-2xl border border-theme bg-card text-center">
+                <button type="button" onclick="closeAbout()" class="material-symbols-outlined text-muted/60 hover:text-main transition-colors self-end -mb-2 -mt-2 -mr-2">close</button>
+
+                <div class="w-16 h-16 rounded-2xl bg-sidebar flex items-center justify-center">
+                    <span class="font-headline text-[28px] font-bold tracking-tighter text-sidebar">P.</span>
+                </div>
+
+                <span class="font-headline text-[20px] font-bold tracking-tighter text-main">Parrot</span>
+                <span class="font-label-caps text-[11px] text-accent" id="about-version" data-i18n="about_version">Versión 1.0</span>
+
+                <p class="font-data text-[13px] text-muted/70" data-i18n="about_description">Separación de audio y post-producción local con Demucs y Whisper.</p>
+
+                <div class="w-full border-t border-theme my-1"></div>
+
+                <p class="font-data text-[13px] text-muted/70"><span data-i18n="about_author_label">Desarrollado por</span> <b>JJaroll</b></p>
+                <p class="font-data text-[11px] text-muted/40" data-i18n="about_license">Distribuido bajo Licencia MIT</p>
+
+                <div class="w-full flex flex-col gap-2 mt-1">
+                    <button type="button" onclick="window.open('https://github.com/JJaroll', '_blank')" class="w-full px-4 py-2 rounded-lg bg-btn hover:bg-btn-hover font-label-caps text-[11px] transition-colors inline-flex items-center justify-center gap-1.5">
+                        <span class="material-symbols-outlined text-[16px]">code</span>
+                        <span data-i18n="about_github_btn">Ver en GitHub</span>
+                    </button>
+                    <button type="button" onclick="window.open('https://ko-fi.com/jjaroll', '_blank')" class="w-full px-4 py-2 rounded-lg bg-btn hover:bg-btn-hover font-label-caps text-[11px] transition-colors inline-flex items-center justify-center gap-1.5">
+                        <span class="material-symbols-outlined text-[16px]">volunteer_activism</span>
+                        <span data-i18n="about_kofi_btn">Contribuir</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -286,16 +327,39 @@
                         <div class="w-2 h-2 rounded-full bg-accent shadow-[0_0_8px_var(--accent)]"></div>
                         <span class="text-xs font-data text-accent tracking-widest uppercase" id="workspace-status">IDLE: Awaiting Input</span>
                     </div>
-                    <h1 class="text-4xl font-black font-headline text-main tracking-tighter">Parrot Audio Studio</h1>
+                    <h1 class="text-4xl font-black font-headline text-main tracking-tighter" data-i18n="header_title">Parrot Audio Studio</h1>
                 </div>
                 <div class="flex items-stretch gap-3">
-                    <button type="button" onclick="newProject()" class="btn-secondary px-4 py-2 rounded-xl flex items-center gap-2" title="Empieza una sesión nueva. El trabajo actual queda guardado en el Historial.">
+                    <button type="button" onclick="newProject()" class="btn-secondary px-4 py-2 rounded-xl flex items-center gap-2" title="Empieza una sesión nueva. El trabajo actual queda guardado en el Historial." data-i18n-title="new_project_tooltip">
                         <span class="material-symbols-outlined text-[18px]">add</span>
-                        <span class="font-label-caps text-[11px] tracking-widest uppercase">Nuevo Proyecto</span>
+                        <span class="font-label-caps text-[11px] tracking-widest uppercase" data-i18n="new_project_btn">Nuevo Proyecto</span>
                     </button>
-                    <div class="glass-card px-4 py-2">
-                        <span class="block text-[10px] text-muted uppercase tracking-widest font-label-caps">Output Format</span>
-                        <span class="text-accent font-data font-bold" id="output-format">WAV 44.1kHz</span>
+                    <div class="relative">
+                        <button type="button" id="format-badge-btn" onclick="toggleFormatMenu()" class="glass-card px-4 py-2 flex items-center gap-2 hover:border-accent transition-colors text-left">
+                            <div>
+                                <span class="block text-[10px] text-muted uppercase tracking-widest font-label-caps" data-i18n="output_format_label">Output Format</span>
+                                <span class="text-accent font-data font-bold" id="output-format">WAV 44.1kHz</span>
+                            </div>
+                            <span class="material-symbols-outlined text-muted text-[18px]">expand_more</span>
+                        </button>
+                        <div id="format-menu" class="hidden absolute right-0 top-full mt-2 w-60 glass-card p-2 flex flex-col gap-1 z-30">
+                            <button type="button" onclick="selectOutputFormat('wav_44100')" data-format="wav_44100" class="format-option text-left px-3 py-2 rounded-lg hover:bg-btn-hover transition-colors bg-accent-light text-accent">
+                                <span class="font-data text-[12px] font-bold block">WAV 44.1kHz</span>
+                                <span class="text-[10px] text-muted block" data-i18n="format_wav44_hint">Sin pérdida, tamaño completo</span>
+                            </button>
+                            <button type="button" onclick="selectOutputFormat('wav_48000')" data-format="wav_48000" class="format-option text-left px-3 py-2 rounded-lg hover:bg-btn-hover transition-colors text-main">
+                                <span class="font-data text-[12px] font-bold block">WAV 48kHz</span>
+                                <span class="text-[10px] text-muted block" data-i18n="format_wav48_hint">Sin pérdida, mayor resolución</span>
+                            </button>
+                            <button type="button" onclick="selectOutputFormat('mp3_320')" data-format="mp3_320" class="format-option text-left px-3 py-2 rounded-lg hover:bg-btn-hover transition-colors text-main">
+                                <span class="font-data text-[12px] font-bold block">MP3 320kbps</span>
+                                <span class="text-[10px] text-muted block" data-i18n="format_mp3_320_hint">Casi sin pérdida, liviano</span>
+                            </button>
+                            <button type="button" onclick="selectOutputFormat('mp3_192')" data-format="mp3_192" class="format-option text-left px-3 py-2 rounded-lg hover:bg-btn-hover transition-colors text-main">
+                                <span class="font-data text-[12px] font-bold block">MP3 192kbps</span>
+                                <span class="text-[10px] text-muted block" data-i18n="format_mp3_192_hint">Liviano, ideal para celular</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -309,8 +373,8 @@
                         <div class="w-12 h-12 bg-btn mb-3 flex items-center justify-center group-hover:bg-accent transition-colors rounded-xl">
                             <span class="material-symbols-outlined text-muted group-hover:text-white text-2xl">upload_file</span>
                         </div>
-                        <h3 class="text-lg font-headline font-bold text-main mb-1 uppercase tracking-tight">Drop Audio Core</h3>
-                        <p class="text-muted text-xs text-center max-w-xs">Soporta archivos de audio y video. Máximo 2GB por sesión.</p>
+                        <h3 class="text-lg font-headline font-bold text-main mb-1 uppercase tracking-tight" data-i18n="upload_title">Drop Audio Core</h3>
+                        <p class="text-muted text-xs text-center max-w-xs" data-i18n="upload_desc">Soporta archivos de audio y video. Máximo 2GB por sesión.</p>
                     </div>
                     <div id="uploadZone-processing" class="hidden flex-col items-center gap-3">
                         <div class="w-10 h-10 rounded-full border-4 border-theme border-t-accent animate-spin"></div>
@@ -373,17 +437,17 @@
                                 LOUDNORM DBTP -1.0
                             </label>
                             <div class="flex items-center gap-2 border-l border-theme pl-4">
-                                <button onclick="startTranscription('vocals')" id="transcribe_btn_vocals" class="btn-secondary px-4 py-2.5 text-[10px] font-bold tracking-widest uppercase rounded-xl flex items-center gap-1.5" title="Transcribe la pista Vocals con Whisper (local)">
+                                <button onclick="startTranscription('vocals')" id="transcribe_btn_vocals" class="btn-secondary px-4 py-2.5 text-[10px] font-bold tracking-widest uppercase rounded-xl flex items-center gap-1.5" title="Transcribe la pista Vocals con Whisper (local)" data-i18n-title="transcribe_tooltip">
                                     <span class="material-symbols-outlined text-[16px]">subtitles</span>
-                                    Transcribir
+                                    <span data-i18n="transcribe_btn_label">Transcribir</span>
                                 </button>
                                 <span id="transcribe_status_vocals" class="text-[10px] font-data text-muted"></span>
                                 <div id="transcribe_links_vocals" class="hidden items-center gap-2"></div>
                             </div>
-                            <button onclick="resetMix()" class="btn-secondary px-5 py-2.5 text-[10px] font-bold tracking-widest uppercase rounded-xl">
+                            <button onclick="resetMix()" class="btn-secondary px-5 py-2.5 text-[10px] font-bold tracking-widest uppercase rounded-xl" data-i18n="reset_mix_btn">
                                 Reset Mix
                             </button>
-                            <button id="exportBtn" onclick="mixAudio()" disabled class="bg-accent px-5 py-2.5 text-[10px] font-bold tracking-widest text-white shadow-[0_0_20px_var(--accent-light)] hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:shadow-none uppercase disabled:cursor-not-allowed rounded-xl">
+                            <button id="exportBtn" onclick="mixAudio()" disabled class="bg-accent px-5 py-2.5 text-[10px] font-bold tracking-widest text-white shadow-[0_0_20px_var(--accent-light)] hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:shadow-none uppercase disabled:cursor-not-allowed rounded-xl" data-i18n="export_btn_label">
                                 Export Stems
                             </button>
                         </div>
@@ -395,14 +459,14 @@
             <div id="view-history" class="view flex-col gap-4 h-full overflow-hidden">
                 <div class="glass-card p-4 flex flex-wrap items-center justify-between gap-4 shrink-0">
                     <div class="flex flex-col gap-0.5 min-w-0">
-                        <span class="font-label-caps text-[11px] tracking-widest text-muted/60">Espacio en disco</span>
-                        <span class="text-[11px] text-muted/70">Borra en el servidor los audios originales, stems separados, mixes y transcripciones ya generados.</span>
+                        <span class="font-label-caps text-[11px] tracking-widest text-muted/60" data-i18n="history_disk_space_title">Espacio en disco</span>
+                        <span class="text-[11px] text-muted/70" data-i18n="history_disk_space_desc">Borra en el servidor los audios originales, stems separados, mixes y transcripciones ya generados.</span>
                     </div>
                     <div class="flex items-center gap-3 shrink-0">
                         <span id="cleanup-status" class="text-[11px] font-data text-muted"></span>
                         <button type="button" onclick="cleanupWorkspace()" id="cleanup-btn" class="btn-secondary px-4 py-2 text-[10px] font-bold tracking-widest uppercase rounded-xl flex items-center gap-1.5">
                             <span class="material-symbols-outlined text-[16px]">delete_sweep</span>
-                            Liberar espacio
+                            <span data-i18n="history_cleanup_btn">Liberar espacio</span>
                         </button>
                     </div>
                 </div>
@@ -411,11 +475,11 @@
                     <div class="flex items-center justify-between gap-2 shrink-0">
                         <div class="flex items-center gap-2">
                             <span class="material-symbols-outlined text-accent text-[20px]">history</span>
-                            <span class="font-label-caps text-[12px] tracking-widest text-muted/60">Historial de trabajos</span>
+                            <span class="font-label-caps text-[12px] tracking-widest text-muted/60" data-i18n="history_title">Historial de trabajos</span>
                         </div>
-                        <button type="button" onclick="clearHistory()" class="btn-secondary px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase rounded-lg">Vaciar historial</button>
+                        <button type="button" onclick="clearHistory()" class="btn-secondary px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase rounded-lg" data-i18n="history_clear_btn">Vaciar historial</button>
                     </div>
-                    <p class="text-muted/70 text-[11px] -mt-1 shrink-0">Guardado en este navegador. Si recargas la página por accidente mientras trabajas, el último proyecto se reabre solo.</p>
+                    <p class="text-muted/70 text-[11px] -mt-1 shrink-0" data-i18n="history_hint">Guardado en este navegador. Si recargas la página por accidente mientras trabajas, el último proyecto se reabre solo.</p>
                     <div id="history-list" class="flex flex-col gap-2 overflow-y-auto custom-scrollbar flex-1">
                         <!-- generado por JS -->
                     </div>
@@ -472,13 +536,71 @@
         }
 
         function updateEQ(s_id) {
-            if(!wavesurfers[s_id]) return;
-            // Almacena el estado para el eventual POST de render (biquad gain nodes en tiempo real pendiente).
+            const f = filters[s_id];
+            if (!f) return; // se aplicará solo al render si la pista todavía no cargó en el navegador
+            const treble = parseFloat(document.getElementById(`treble_${s_id}`)?.value ?? 0);
+            const mid = parseFloat(document.getElementById(`mid_${s_id}`)?.value ?? 0);
+            const bass = parseFloat(document.getElementById(`bass_${s_id}`)?.value ?? 0);
+            f.treble.gain.value = treble;
+            f.mid.gain.value = mid;
+            f.bass.gain.value = bass;
+        }
+
+        function updatePan(s_id, val) {
+            const f = filters[s_id];
+            if (f) f.panner.pan.value = parseFloat(val);
         }
 
         function updateHPF(s_id, val) {
             const label = document.getElementById(`hpf_val_${s_id}`);
             if (label) label.innerText = (val == 0) ? 'OFF' : `${val}Hz`;
+            const f = filters[s_id];
+            if (f) f.hpf.frequency.value = (val > 0) ? val : 10;
+        }
+
+        // ============ Recorte de un fragmento de un stem ============
+        function markTrimStart(s_id) {
+            const ws = wavesurfers[s_id];
+            if (!ws) return;
+            if (!trimRanges[s_id]) trimRanges[s_id] = { start: null, end: null };
+            trimRanges[s_id].start = ws.getCurrentTime();
+            updateTrimDisplay(s_id);
+        }
+
+        function markTrimEnd(s_id) {
+            const ws = wavesurfers[s_id];
+            if (!ws) return;
+            if (!trimRanges[s_id]) trimRanges[s_id] = { start: null, end: null };
+            trimRanges[s_id].end = ws.getCurrentTime();
+            updateTrimDisplay(s_id);
+        }
+
+        function updateTrimDisplay(s_id) {
+            const range = trimRanges[s_id] || {};
+            const label = document.getElementById(`trim_range_${s_id}`);
+            const link = document.getElementById(`trim_download_${s_id}`);
+            if (label) {
+                const startTxt = range.start != null ? formatTime(range.start) : '--:--';
+                const endTxt = range.end != null ? formatTime(range.end) : '--:--';
+                label.innerHTML = `${startTxt} &rarr; ${endTxt}`;
+            }
+            if (!link) return;
+            const valid = currentJobId && range.start != null && range.end != null && range.end > range.start;
+            if (valid) {
+                link.href = `/api/v1/trim/${currentJobId}?stem=${s_id}&start=${range.start}&end=${range.end}`;
+                link.setAttribute('download', `${s_id}_recorte.wav`);
+                link.classList.remove('text-muted/30', 'pointer-events-none');
+                link.classList.add('text-accent', 'hover:brightness-125', 'cursor-pointer');
+            } else {
+                link.href = '#';
+                link.classList.add('text-muted/30', 'pointer-events-none');
+                link.classList.remove('text-accent', 'hover:brightness-125', 'cursor-pointer');
+            }
+        }
+
+        function resetTrim(s_id) {
+            trimRanges[s_id] = { start: null, end: null };
+            updateTrimDisplay(s_id);
         }
 
         // ============ Transcripción local con Whisper (pista Vocals) ============
@@ -486,7 +608,7 @@
             const btn = document.getElementById(`transcribe_btn_${s_id}`);
             const statusEl = document.getElementById(`transcribe_status_${s_id}`);
             const linksEl = document.getElementById(`transcribe_links_${s_id}`);
-            if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">subtitles</span> Transcribir'; }
+            if (btn) { btn.disabled = false; btn.innerHTML = `<span class="material-symbols-outlined text-[16px]">subtitles</span> <span data-i18n="transcribe_btn_label">${t('transcribe_btn_label')}</span>`; }
             if (statusEl) statusEl.innerText = '';
             if (linksEl) { linksEl.classList.add('hidden'); linksEl.classList.remove('flex'); linksEl.innerHTML = ''; }
         }
@@ -584,7 +706,7 @@
                 <div id="track-row-${s_id}" class="waveform-row flex flex-col border border-theme bg-input transition-colors mb-2 rounded-xl overflow-hidden">
                     <div class="flex flex-row w-full h-[110px] cursor-pointer" onclick="selectTrack('${s_id}')">
                         <!-- Left Control Panel (DAW style) -->
-                        <div class="w-48 flex-shrink-0 flex bg-card border-r border-theme select-none relative" onclick="event.stopPropagation();">
+                        <div class="w-48 flex-shrink-0 flex bg-card border-r border-theme select-none relative" onclick="event.stopPropagation();" onmousedown="event.stopPropagation();">
                             <!-- Vertical Meter -->
                             <div class="w-2 h-[110px] bg-app border-r border-theme/50 flex flex-col justify-end relative">
                                 <div class="w-full h-[60%] border-t border-red-500/50 absolute top-0 z-0"></div>
@@ -596,7 +718,10 @@
                                 <!-- Header -->
                                 <div class="bg-btn px-3 py-1 flex justify-between items-center border-b border-theme">
                                     <span class="text-[11px] font-data font-bold truncate tracking-widest uppercase shadow-sm" style="color: ${stem.color};">${stem.label}</span>
-                                    <button onclick="toggleFX('${s_id}')" class="text-[9px] font-bold bg-input hover:bg-accent hover:text-white hover:border-accent px-1.5 py-[1px] rounded-[3px] border border-theme text-muted transition-all">FX</button>
+                                    <div class="flex items-center gap-1.5">
+                                        <a id="stem_download_${s_id}" href="#" class="material-symbols-outlined text-[14px] text-muted/30 pointer-events-none transition-colors" title="Descargar ${stem.label}.wav (sin fusionar)" data-i18n-title-tpl="stem_download_tooltip" data-stem-label="${stem.label}">download</a>
+                                        <button onclick="toggleFX('${s_id}')" class="text-[9px] font-bold bg-input hover:bg-accent hover:text-white hover:border-accent px-1.5 py-[1px] rounded-[3px] border border-theme text-muted transition-all">FX</button>
+                                    </div>
                                 </div>
 
                                 <!-- Mute / Solo -->
@@ -611,9 +736,9 @@
                                         <span class="material-symbols-outlined text-[13px] text-muted/60 pl-[1px]">volume_up</span>
                                         <input type="range" class="eq-slider flex-1" id="vol_${s_id}" min="0" max="2" step="0.05" value="1.0" oninput="updateFaderFill('${s_id}', this.value)">
                                     </div>
-                                    <div class="flex items-center gap-2" title="Pan">
+                                    <div class="flex items-center gap-2" title="Pan (en vivo)">
                                         <span class="text-[9px] text-muted/60 font-bold tracking-tighter">PAN</span>
-                                        <input type="range" class="eq-slider flex-1" min="-1" max="1" step="0.1" value="0">
+                                        <input type="range" class="eq-slider flex-1" id="pan_${s_id}" min="-1" max="1" step="0.1" value="0" oninput="updatePan('${s_id}', this.value)">
                                     </div>
                                 </div>
                             </div>
@@ -635,27 +760,29 @@
                     </div>
 
                     <!-- FX Drawer (Hidden by default) -->
-                    <div id="fx_drawer_${s_id}" class="hidden flex-col bg-card border-t border-theme p-3 pl-[192px]" onclick="event.stopPropagation();">
+                    <div id="fx_drawer_${s_id}" class="hidden flex-col bg-card border-t border-theme p-3 pl-[192px]" onclick="event.stopPropagation();" onmousedown="event.stopPropagation();">
                         <div class="flex gap-10 items-center pl-6">
-                            <!-- Gate -->
-                            <label class="flex items-center gap-3 cursor-pointer text-[10px] font-headline text-muted hover:text-main transition-colors">
+                            <!-- Gate: solo se aplica al exportar, un gate real no se puede previsualizar
+                                 en vivo con nodos estándar de Web Audio (haría falta un AudioWorklet). -->
+                            <label class="flex items-center gap-3 cursor-pointer text-[10px] font-headline text-muted hover:text-main transition-colors" title="Se aplica solo al exportar (Export Stems), no tiene preview en vivo" data-i18n-title="gate_tooltip">
                                 <span class="font-bold tracking-widest">GATE</span>
                                 <div class="relative w-5 h-5 flex items-center justify-center border border-theme bg-input rounded-[2px]">
                                     <input type="checkbox" id="gate_${s_id}" class="absolute opacity-0 w-full h-full cursor-pointer peer">
                                     <div class="w-3 h-3 bg-transparent peer-checked:bg-accent rounded-[1px] transition-colors shadow-[0_0_8px_var(--accent-light)]"></div>
                                 </div>
+                                <span class="text-[8px] text-muted/50 normal-case font-body" data-i18n="gate_export_only_hint">(solo export)</span>
                             </label>
 
-                            <!-- High-Pass Filter: corta retumbe de viento / rumble de baja frecuencia -->
-                            <div class="flex items-center gap-2 pl-6 border-l border-theme" title="Filtro pasa-altos: elimina el retumbe del viento sin afectar voces ni graznidos">
+                            <!-- High-Pass Filter: corta retumbe de viento / rumble de baja frecuencia. Preview en vivo. -->
+                            <div class="flex items-center gap-2 pl-6 border-l border-theme" title="Filtro pasa-altos con preview en vivo: se escucha al instante, sin exportar" data-i18n-title="hpf_tooltip">
                                 <span class="text-[10px] text-muted font-bold tracking-widest">HPF</span>
                                 <input type="range" id="hpf_${s_id}" min="0" max="300" step="10" value="0" class="eq-slider w-20" oninput="updateHPF('${s_id}', this.value)" title="Frecuencia de corte (Hz)">
                                 <span class="text-[9px] font-data text-accent w-9 text-right" id="hpf_val_${s_id}">OFF</span>
                             </div>
 
-                            <!-- EQ -->
+                            <!-- EQ: preview en vivo -->
                             <div class="flex gap-6 items-center pl-6 border-l border-theme">
-                                <span class="text-[10px] text-muted font-bold tracking-widest underline decoration-theme underline-offset-4">EQ (3-BAND)</span>
+                                <span class="text-[10px] text-muted font-bold tracking-widest underline decoration-theme underline-offset-4" title="Preview en vivo: se escucha al instante, sin exportar" data-i18n-title="eq_tooltip">EQ (3-BAND)</span>
 
                                 <div class="flex items-center gap-2 w-28">
                                     <span class="text-[9px] font-headline font-bold text-muted w-8">HIGH</span>
@@ -669,6 +796,15 @@
                                     <span class="text-[9px] font-headline font-bold text-muted w-8">LOW</span>
                                     <input type="range" id="bass_${s_id}" min="-20" max="20" value="0" class="eq-slider flex-1" oninput="updateEQ('${s_id}')" title="Low / Bass">
                                 </div>
+                            </div>
+
+                            <!-- Recorte: extrae solo un fragmento de este stem, usando la posición de reproducción actual -->
+                            <div class="flex items-center gap-2 pl-6 border-l border-theme">
+                                <span class="text-[10px] text-muted font-bold tracking-widest" data-i18n="trim_label">RECORTE</span>
+                                <button onclick="markTrimStart('${s_id}')" class="btn-secondary px-2 py-1 text-[9px] font-bold tracking-widest uppercase rounded" title="Marca el inicio en la posición actual de reproducción" data-i18n-title="trim_in_tooltip">IN</button>
+                                <span id="trim_range_${s_id}" class="font-data text-[10px] text-accent w-28 text-center">--:-- &rarr; --:--</span>
+                                <button onclick="markTrimEnd('${s_id}')" class="btn-secondary px-2 py-1 text-[9px] font-bold tracking-widest uppercase rounded" title="Marca el fin en la posición actual de reproducción" data-i18n-title="trim_out_tooltip">OUT</button>
+                                <a id="trim_download_${s_id}" href="#" class="material-symbols-outlined text-[16px] text-muted/30 pointer-events-none transition-colors" title="Descargar el fragmento recortado" data-i18n-title="trim_download_tooltip">content_cut</a>
                             </div>
                         </div>
                     </div>
@@ -684,6 +820,8 @@
         let audioCtx;
         let analysers = {};
         let dataArrays = {};
+        let filters = {}; // { stem_id: { hpf, bass, mid, treble } } — nodos Web Audio para preview en vivo de EQ/HPF
+        let trimRanges = {}; // { stem_id: { start, end } } — marcas de recorte en segundos
 
         function initMeters() {
             if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -810,6 +948,9 @@
                 const volInput = document.getElementById(`vol_${stem}`);
                 if(volInput) volInput.value = 1.0;
                 updateFaderFill(stem, 1.0);
+                const pan = document.getElementById(`pan_${stem}`);
+                if(pan) pan.value = 0;
+                updatePan(stem, 0);
                 const gate = document.getElementById(`gate_${stem}`);
                 if(gate) gate.checked = false;
                 const hpf = document.getElementById(`hpf_${stem}`);
@@ -821,10 +962,43 @@
                 if(md) md.value = 0;
                 const bs = document.getElementById(`bass_${stem}`);
                 if(bs) bs.value = 0;
+                updateEQ(stem);
             });
             const master_norm = document.getElementById('master_normalize');
             if(master_norm) master_norm.checked = false;
         }
+
+        // ============ Formato de salida del render (Export Stems) ============
+        const OUTPUT_FORMATS = {
+            wav_44100: 'WAV 44.1kHz',
+            wav_48000: 'WAV 48kHz',
+            mp3_320: 'MP3 320kbps',
+            mp3_192: 'MP3 192kbps',
+        };
+        let selectedOutputFormat = 'wav_44100';
+
+        function toggleFormatMenu() {
+            document.getElementById('format-menu').classList.toggle('hidden');
+        }
+
+        function selectOutputFormat(key) {
+            selectedOutputFormat = key;
+            document.getElementById('output-format').innerText = OUTPUT_FORMATS[key];
+            document.querySelectorAll('.format-option').forEach(btn => {
+                const isSelected = btn.dataset.format === key;
+                btn.classList.toggle('bg-accent-light', isSelected);
+                btn.classList.toggle('text-accent', isSelected);
+                btn.classList.toggle('text-main', !isSelected);
+            });
+            document.getElementById('format-menu').classList.add('hidden');
+        }
+
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('format-menu');
+            const btn = document.getElementById('format-badge-btn');
+            if (!menu || menu.classList.contains('hidden')) return;
+            if (!menu.contains(e.target) && !btn.contains(e.target)) menu.classList.add('hidden');
+        });
 
         function newProject() {
             // El job actual no se borra: sigue disponible en el Historial para reanudarlo.
@@ -833,6 +1007,8 @@
             wavesurfers = {};
             analysers = {};
             dataArrays = {};
+            filters = {};
+            trimRanges = {};
             activeStem = null;
             soloState = null;
             currentJobId = null;
@@ -847,7 +1023,7 @@
             document.getElementById('empty-preview').classList.add('opacity-40');
             document.getElementById('time-display').innerText = '00:00 / 00:00';
             document.getElementById('exportBtn').disabled = true;
-            document.getElementById('exportBtn').innerText = 'Export Stems';
+            document.getElementById('exportBtn').innerText = t('export_btn_label');
             document.getElementById('fileInput').value = '';
 
             resetMix();
@@ -946,7 +1122,7 @@
         }
 
         async function cleanupWorkspace() {
-            if (!confirm('Esto borra permanentemente todos los audios, stems y transcripciones generados en el servidor (no solo este historial). ¿Continuar?')) return;
+            if (!confirm(t('cleanup_confirm'))) return;
 
             const btn = document.getElementById('cleanup-btn');
             const statusEl = document.getElementById('cleanup-status');
@@ -971,10 +1147,10 @@
 
         function historyStatusBadge(status) {
             switch (status) {
-                case 'completed': return { text: 'Completado', cls: 'text-accent border-accent/40 bg-accent/10' };
-                case 'failed': return { text: 'Error', cls: 'text-red-400 border-red-500/40 bg-red-500/10' };
-                case 'unavailable': return { text: 'No disponible', cls: 'text-muted border-theme' };
-                default: return { text: 'Procesando...', cls: 'text-muted border-theme' };
+                case 'completed': return { text: t('history_status_completed'), cls: 'text-accent border-accent/40 bg-accent/10' };
+                case 'failed': return { text: t('history_status_error'), cls: 'text-red-400 border-red-500/40 bg-red-500/10' };
+                case 'unavailable': return { text: t('history_status_unavailable'), cls: 'text-muted border-theme' };
+                default: return { text: t('history_status_processing'), cls: 'text-muted border-theme' };
             }
         }
 
@@ -983,7 +1159,7 @@
             if (!container) return;
             const list = getHistory();
             if (list.length === 0) {
-                container.innerHTML = `<p class="font-data text-[13px] text-muted/40">Todavía no hay trabajos en el historial.</p>`;
+                container.innerHTML = `<p class="font-data text-[13px] text-muted/40">${t('history_empty')}</p>`;
                 return;
             }
             container.innerHTML = list.map(item => {
@@ -999,8 +1175,8 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
-                        <button onclick="resumeJob('${item.job_id}')" class="btn-secondary px-3 py-2 text-[10px] font-bold tracking-widest uppercase rounded-lg">Reanudar</button>
-                        <button onclick="removeHistoryEntry('${item.job_id}')" class="material-symbols-outlined text-muted/50 hover:text-red-400 transition-colors text-[18px]" title="Quitar del historial">close</button>
+                        <button onclick="resumeJob('${item.job_id}')" class="btn-secondary px-3 py-2 text-[10px] font-bold tracking-widest uppercase rounded-lg">${t('history_resume_btn')}</button>
+                        <button onclick="removeHistoryEntry('${item.job_id}')" class="material-symbols-outlined text-muted/50 hover:text-red-400 transition-colors text-[18px]" title="${t('history_remove_tooltip')}">close</button>
                     </div>
                 </div>`;
             }).join('');
@@ -1135,6 +1311,14 @@
                 const s_id = stem.id;
                 const urlPath = `/workspace/jobs/${jobId}/separated/${s_id}.wav`;
 
+                const dlLink = document.getElementById(`stem_download_${s_id}`);
+                if (dlLink) {
+                    dlLink.href = urlPath;
+                    dlLink.setAttribute('download', `${s_id}.wav`);
+                    dlLink.classList.remove('text-muted/30', 'pointer-events-none');
+                    dlLink.classList.add('text-muted', 'hover:text-accent', 'cursor-pointer');
+                }
+
                 const ws = WaveSurfer.create({
                     container: `#wf-${s_id}`,
                     waveColor: stem.color,
@@ -1158,14 +1342,50 @@
                         const media = ws.getMediaElement();
                         if (!media._hasSource) {
                             const source = audioCtx.createMediaElementSource(media);
+
+                            // Cadena de EQ/HPF en vivo (Web Audio), independiente del volumen
+                            // (que ya se controla en el propio <audio> vía wavesurfer.setVolume).
+                            // Los valores se inicializan desde los sliders actuales y quedan
+                            // "en vivo": moverlos se escucha al instante, sin exportar.
+                            const hpf = audioCtx.createBiquadFilter();
+                            hpf.type = 'highpass';
+                            hpf.frequency.value = 10; // "apagado" hasta que el HPF slider suba de 0
+
+                            const bass = audioCtx.createBiquadFilter();
+                            bass.type = 'lowshelf';
+                            bass.frequency.value = 200;
+
+                            const mid = audioCtx.createBiquadFilter();
+                            mid.type = 'peaking';
+                            mid.frequency.value = 1000;
+                            mid.Q.value = 1;
+
+                            const treble = audioCtx.createBiquadFilter();
+                            treble.type = 'highshelf';
+                            treble.frequency.value = 3000;
+
+                            const panner = audioCtx.createStereoPanner();
+
                             const analyser = audioCtx.createAnalyser();
                             analyser.fftSize = 256;
-                            source.connect(analyser);
+
+                            source.connect(hpf);
+                            hpf.connect(bass);
+                            bass.connect(mid);
+                            mid.connect(treble);
+                            treble.connect(panner);
+                            panner.connect(analyser);
                             analyser.connect(audioCtx.destination);
 
+                            filters[s_id] = { hpf, bass, mid, treble, panner };
                             analysers[s_id] = analyser;
                             dataArrays[s_id] = new Uint8Array(analyser.frequencyBinCount);
                             media._hasSource = true;
+
+                            // Aplica el estado actual de los sliders (por si ya se habían tocado).
+                            updateHPF(s_id, document.getElementById(`hpf_${s_id}`)?.value ?? 0);
+                            updateEQ(s_id);
+                            updatePan(s_id, document.getElementById(`pan_${s_id}`)?.value ?? 0);
                         }
                     } catch(e) {
                          console.warn("Could not bind analyser for", s_id, e);
@@ -1245,10 +1465,14 @@
             exportBtn.disabled = true;
             setStatus("RENDERING MASTER BUSS...", true);
 
-            const payload = { normalize: document.getElementById('master_normalize').checked };
+            const payload = {
+                normalize: document.getElementById('master_normalize').checked,
+                output_format: selectedOutputFormat,
+            };
             stems.forEach(stem => {
                 payload[stem] = {
                     volume: parseFloat(document.getElementById(`vol_${stem}`).value),
+                    pan: parseFloat(document.getElementById(`pan_${stem}`).value),
                     noise_gate: document.getElementById(`gate_${stem}`).checked,
                     highpass_freq: parseFloat(document.getElementById(`hpf_${stem}`).value),
                     bass_gain: parseFloat(document.getElementById(`bass_${stem}`).value),
@@ -1294,6 +1518,225 @@
             return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         }
 
+        // ============ Idioma (i18n) ============
+        const I18N = {
+            es: {
+                sidebar_logo_tooltip: "Sobre Parrot",
+                sidebar_settings_tooltip: "Ajustes",
+                sidebar_engine_tooltip: "Estado del motor",
+                nav_studio: "Studio",
+                nav_history: "Historial",
+                settings_title: "Ajustes",
+                settings_theme_title: "TEMA",
+                settings_theme_dark: "Oscuro",
+                settings_theme_light: "Claro",
+                settings_color_title: "COLOR DE ACENTO",
+                settings_language_title: "Idioma",
+                settings_engine_label: "Motor de separación",
+                common_close: "Cerrar",
+                about_version: "Versión 1.0",
+                about_description: "Separación de audio y post-producción local con Demucs y Whisper.",
+                about_author_label: "Desarrollado por",
+                about_license: "Distribuido bajo Licencia MIT",
+                about_github_btn: "Ver en GitHub",
+                about_kofi_btn: "Contribuir",
+                header_title: "Parrot Audio Studio",
+                new_project_btn: "Nuevo Proyecto",
+                new_project_tooltip: "Empieza una sesión nueva. El trabajo actual queda guardado en el Historial.",
+                output_format_label: "Output Format",
+                format_wav44_hint: "Sin pérdida, tamaño completo",
+                format_wav48_hint: "Sin pérdida, mayor resolución",
+                format_mp3_320_hint: "Casi sin pérdida, liviano",
+                format_mp3_192_hint: "Liviano, ideal para celular",
+                upload_title: "Drop Audio Core",
+                upload_desc: "Soporta archivos de audio y video. Máximo 2GB por sesión.",
+                transcribe_btn_label: "Transcribir",
+                transcribe_tooltip: "Transcribe la pista Vocals con Whisper (local)",
+                reset_mix_btn: "Reset Mix",
+                export_btn_label: "Export Stems",
+                gate_tooltip: "Se aplica solo al exportar (Export Stems), no tiene preview en vivo",
+                gate_export_only_hint: "(solo export)",
+                hpf_tooltip: "Filtro pasa-altos con preview en vivo: se escucha al instante, sin exportar",
+                eq_tooltip: "Preview en vivo: se escucha al instante, sin exportar",
+                trim_label: "RECORTE",
+                trim_in_tooltip: "Marca el inicio en la posición actual de reproducción",
+                trim_out_tooltip: "Marca el fin en la posición actual de reproducción",
+                trim_download_tooltip: "Descargar el fragmento recortado",
+                stem_download_tooltip: "Descargar {label}.wav (sin fusionar)",
+                history_disk_space_title: "Espacio en disco",
+                history_disk_space_desc: "Borra en el servidor los audios originales, stems separados, mixes y transcripciones ya generados.",
+                history_cleanup_btn: "Liberar espacio",
+                history_title: "Historial de trabajos",
+                history_clear_btn: "Vaciar historial",
+                history_hint: "Guardado en este navegador. Si recargas la página por accidente mientras trabajas, el último proyecto se reabre solo.",
+                history_empty: "Todavía no hay trabajos en el historial.",
+                history_resume_btn: "Reanudar",
+                history_remove_tooltip: "Quitar del historial",
+                history_status_completed: "Completado",
+                history_status_error: "Error",
+                history_status_unavailable: "No disponible",
+                history_status_processing: "Procesando...",
+                cleanup_confirm: "Esto borra permanentemente todos los audios, stems y transcripciones generados en el servidor (no solo este historial). ¿Continuar?",
+            },
+            en: {
+                sidebar_logo_tooltip: "About Parrot",
+                sidebar_settings_tooltip: "Settings",
+                sidebar_engine_tooltip: "Engine status",
+                nav_studio: "Studio",
+                nav_history: "History",
+                settings_title: "Settings",
+                settings_theme_title: "THEME",
+                settings_theme_dark: "Dark",
+                settings_theme_light: "Light",
+                settings_color_title: "ACCENT COLOR",
+                settings_language_title: "Language",
+                settings_engine_label: "Separation engine",
+                common_close: "Close",
+                about_version: "Version 1.0",
+                about_description: "Local audio separation and post-production with Demucs and Whisper.",
+                about_author_label: "Developed by",
+                about_license: "Distributed under the MIT License",
+                about_github_btn: "View on GitHub",
+                about_kofi_btn: "Support",
+                header_title: "Parrot Audio Studio",
+                new_project_btn: "New Project",
+                new_project_tooltip: "Start a new session. Your current work stays saved in History.",
+                output_format_label: "Output Format",
+                format_wav44_hint: "Lossless, full size",
+                format_wav48_hint: "Lossless, higher resolution",
+                format_mp3_320_hint: "Near-lossless, lightweight",
+                format_mp3_192_hint: "Lightweight, ideal for mobile",
+                upload_title: "Drop Audio Core",
+                upload_desc: "Supports audio and video files. 2GB max per session.",
+                transcribe_btn_label: "Transcribe",
+                transcribe_tooltip: "Transcribe the Vocals track with Whisper (local)",
+                reset_mix_btn: "Reset Mix",
+                export_btn_label: "Export Stems",
+                gate_tooltip: "Only applied on export (Export Stems), no live preview",
+                gate_export_only_hint: "(export only)",
+                hpf_tooltip: "High-pass filter with live preview: heard instantly, no export needed",
+                eq_tooltip: "Live preview: heard instantly, no export needed",
+                trim_label: "TRIM",
+                trim_in_tooltip: "Mark the start at the current playback position",
+                trim_out_tooltip: "Mark the end at the current playback position",
+                trim_download_tooltip: "Download the trimmed clip",
+                stem_download_tooltip: "Download {label}.wav (without merging)",
+                history_disk_space_title: "Disk space",
+                history_disk_space_desc: "Deletes original audio, separated stems, mixes, and transcriptions already generated on the server.",
+                history_cleanup_btn: "Free up space",
+                history_title: "Job history",
+                history_clear_btn: "Clear history",
+                history_hint: "Saved in this browser. If you accidentally reload the page while working, your last project reopens automatically.",
+                history_empty: "No jobs in history yet.",
+                history_resume_btn: "Resume",
+                history_remove_tooltip: "Remove from history",
+                history_status_completed: "Completed",
+                history_status_error: "Error",
+                history_status_unavailable: "Unavailable",
+                history_status_processing: "Processing...",
+                cleanup_confirm: "This permanently deletes all audio, stems, and transcriptions generated on the server (not just this history). Continue?",
+            },
+            ja: {
+                sidebar_logo_tooltip: "Parrot について",
+                sidebar_settings_tooltip: "設定",
+                sidebar_engine_tooltip: "エンジンの状態",
+                nav_studio: "スタジオ",
+                nav_history: "履歴",
+                settings_title: "設定",
+                settings_theme_title: "テーマ",
+                settings_theme_dark: "ダーク",
+                settings_theme_light: "ライト",
+                settings_color_title: "アクセントカラー",
+                settings_language_title: "言語",
+                settings_engine_label: "分離エンジン",
+                common_close: "閉じる",
+                about_version: "バージョン 1.0",
+                about_description: "Demucs と Whisper によるローカル音声分離・後処理。",
+                about_author_label: "開発者",
+                about_license: "MIT ライセンスの下で配布",
+                about_github_btn: "GitHub で見る",
+                about_kofi_btn: "サポートする",
+                header_title: "Parrot オーディオスタジオ",
+                new_project_btn: "新規プロジェクト",
+                new_project_tooltip: "新しいセッションを開始します。現在の作業は履歴に保存されます。",
+                output_format_label: "出力フォーマット",
+                format_wav44_hint: "ロスレス、フルサイズ",
+                format_wav48_hint: "ロスレス、高解像度",
+                format_mp3_320_hint: "ほぼロスレス、軽量",
+                format_mp3_192_hint: "軽量、モバイル向け",
+                upload_title: "オーディオをドロップ",
+                upload_desc: "音声・動画ファイルに対応。1セッションあたり最大2GB。",
+                transcribe_btn_label: "文字起こし",
+                transcribe_tooltip: "Whisper（ローカル）でVocalsトラックを文字起こし",
+                reset_mix_btn: "ミックスをリセット",
+                export_btn_label: "ステムを書き出す",
+                gate_tooltip: "書き出し時のみ適用されます（ライブプレビューなし）",
+                gate_export_only_hint: "（書き出し時のみ）",
+                hpf_tooltip: "ライブプレビュー付きハイパスフィルター：エクスポートせずに即座に確認できます",
+                eq_tooltip: "ライブプレビュー：エクスポートせずに即座に確認できます",
+                trim_label: "トリム",
+                trim_in_tooltip: "現在の再生位置を開始点として設定",
+                trim_out_tooltip: "現在の再生位置を終了点として設定",
+                trim_download_tooltip: "トリムした断片をダウンロード",
+                stem_download_tooltip: "{label}.wav をダウンロード（結合せず）",
+                history_disk_space_title: "ディスク容量",
+                history_disk_space_desc: "サーバー上の元音声、分離済みステム、ミックス、生成済みの文字起こしを削除します。",
+                history_cleanup_btn: "容量を解放",
+                history_title: "作業履歴",
+                history_clear_btn: "履歴を消去",
+                history_hint: "このブラウザに保存されます。作業中に誤ってページを再読み込みしても、最後のプロジェクトが自動的に再度開きます。",
+                history_empty: "履歴にはまだ作業がありません。",
+                history_resume_btn: "再開",
+                history_remove_tooltip: "履歴から削除",
+                history_status_completed: "完了",
+                history_status_error: "エラー",
+                history_status_unavailable: "利用不可",
+                history_status_processing: "処理中...",
+                cleanup_confirm: "サーバー上で生成されたすべての音声、ステム、文字起こしを完全に削除します（この履歴だけではありません）。続行しますか？",
+            },
+        };
+
+        let currentLang = localStorage.getItem('parrot_lang') || 'es';
+
+        function t(key, vars) {
+            const dict = I18N[currentLang] || I18N.es;
+            let str = dict[key] !== undefined ? dict[key] : (I18N.es[key] !== undefined ? I18N.es[key] : key);
+            if (vars) {
+                Object.keys(vars).forEach(k => { str = str.split('{' + k + '}').join(vars[k]); });
+            }
+            return str;
+        }
+
+        function applyLanguage(lang) {
+            currentLang = I18N[lang] ? lang : 'es';
+            localStorage.setItem('parrot_lang', currentLang);
+            document.documentElement.lang = currentLang;
+
+            document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.getAttribute('data-i18n')); });
+            document.querySelectorAll('[data-i18n-title]').forEach(el => { el.setAttribute('title', t(el.getAttribute('data-i18n-title'))); });
+            document.querySelectorAll('[data-i18n-title-tpl]').forEach(el => {
+                const key = el.getAttribute('data-i18n-title-tpl');
+                const label = el.getAttribute('data-stem-label') || '';
+                el.setAttribute('title', t(key, { label }));
+            });
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.lang === currentLang);
+            });
+
+            // Re-renderiza listas dinámicas ya pintadas para que también cambien de idioma.
+            renderHistoryList();
+        }
+
+        // ============ Modal "Sobre" (About): se abre al hacer clic en el logo "P." de la barra lateral ============
+        function openAbout() {
+            document.getElementById('about-modal').classList.remove('hidden');
+            document.getElementById('about-modal').classList.add('flex');
+        }
+        function closeAbout() {
+            document.getElementById('about-modal').classList.add('hidden');
+            document.getElementById('about-modal').classList.remove('flex');
+        }
+
         // ============ Ajustes: tema y acento (persistidos en localStorage) ============
         function openSettings() {
             document.getElementById('settings-modal').classList.remove('hidden');
@@ -1319,16 +1762,16 @@
             });
         }
 
-        // Restaura preferencias guardadas al cargar
+        // Restaura preferencias guardadas al cargar (tema, acento, idioma)
         (function initTheme() {
             const theme = localStorage.getItem('parrot_ui_theme') || 'dark';
             const color = localStorage.getItem('parrot_ui_color') || 'blue';
             selectTheme(theme);
             selectColor(color);
         })();
+        applyLanguage(currentLang); // también pinta el historial en el idioma correcto
 
-        // Pinta el historial y, si había un trabajo abierto antes del reload, lo retoma solo.
-        renderHistoryList();
+        // Si había un trabajo abierto antes del reload, lo retoma solo.
         (function autoResume() {
             const jobId = localStorage.getItem(ACTIVE_JOB_KEY);
             if (jobId) resumeJob(jobId);
