@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Parrot | Audio Separation Studio</title>
 
-    <!-- Tailwind vía CDN -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script src="https://unpkg.com/wavesurfer.js@7"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,7 +12,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 
-    <!-- Mapeo de los tokens CSS a clases de Tailwind -->
     <script>
         tailwind.config = {
             darkMode: "class",
@@ -54,9 +52,8 @@
         }
     </script>
 
-    <!-- ============ TOKENS (copia embebida de UX-UI/tokens.css, ver también frontend/tokens.css) ============ -->
     <style>
-        /* TEMA OSCURO (por defecto) */
+        /* :root = tema oscuro por defecto (sin selector [data-theme]) */
         :root {
             --bg-app: #151618;
             --bg-main: #25262A;
@@ -75,7 +72,6 @@
             --border-color: rgba(255, 255, 255, 0.1);
         }
 
-        /* TEMA CLARO */
         [data-theme="light"] {
             --bg-app: #D8DCE0;
             --bg-main: #E8ECEF;
@@ -91,7 +87,6 @@
             --border-color: rgba(0, 0, 0, 0.1);
         }
 
-        /* ACENTOS */
         [data-color="blue"]   { --accent: #0099FF; --accent-hover: #0088E6; --accent-light: rgba(0, 153, 255, 0.15); }
         [data-color="green"]  { --accent: #77C800; --accent-hover: #6AB300; --accent-light: rgba(119, 200, 0, 0.15); }
         [data-color="purple"] { --accent: #8A2BE2; --accent-hover: #7B27C9; --accent-light: rgba(138, 43, 226, 0.15); }
@@ -99,7 +94,6 @@
         [data-color="pink"]   { --accent: #E62E6B; --accent-hover: #CC295F; --accent-light: rgba(230, 46, 107, 0.15); }
     </style>
 
-    <!-- ============ COMPONENTES REUTILIZABLES (sistema Cicada) ============ -->
     <style>
         body {
             background-color: var(--bg-app);
@@ -178,7 +172,6 @@
         .color-btn { border: 2.5px solid transparent; }
         .color-btn.selected { border-color: var(--text-main); box-shadow: 0 0 0 4px var(--accent-light); }
 
-        /* ============ Específico de Parrot: multitrack, faders, EQ ============ */
         .waveform-row { transition: all 0.2s ease; position: relative; }
         .waveform-row:hover:not(.border-accent) { background-color: var(--btn-bg); }
 
@@ -203,7 +196,6 @@
         }
         input[type=range]::-webkit-slider-runnable-track { background: transparent; border: none; }
 
-        /* Vistas / pestañas (patrón SPA simple sin framework) */
         .view { display: none; }
         .view.active { display: flex; }
     </style>
@@ -211,7 +203,6 @@
 <body class="bg-app text-main font-body h-screen flex justify-center p-4">
     <div class="w-full h-full max-w-[1920px] mx-auto flex gap-4">
 
-        <!-- ============ SIDEBAR: identidad fija de Parrot ============ -->
         <aside class="h-full w-[100px] bg-sidebar rounded-[20px] flex flex-col items-center py-8 z-50 text-sidebar shrink-0">
             <div class="mb-12 cursor-pointer hover:opacity-70 transition-opacity" onclick="openAbout()" title="Sobre Parrot" data-i18n-title="sidebar_logo_tooltip">
                 <span class="font-headline text-[24px] font-bold tracking-tighter">P.</span>
@@ -235,7 +226,6 @@
             </div>
         </aside>
 
-        <!-- ============ MODAL DE AJUSTES ============ -->
         <div id="settings-modal" class="hidden fixed inset-0 z-[100] items-center justify-center bg-black/60 backdrop-blur-sm">
             <div class="w-full max-w-lg mx-4 p-6 flex flex-col gap-5 max-h-[85vh] overflow-y-auto custom-scrollbar rounded-2xl border border-theme bg-card">
                 <div class="flex items-center justify-between">
@@ -285,7 +275,6 @@
             </div>
         </div>
 
-        <!-- ============ MODAL "SOBRE" (About): se abre al hacer clic en el logo "P." de la barra lateral ============ -->
         <div id="about-modal" class="hidden fixed inset-0 z-[100] items-center justify-center bg-black/60 backdrop-blur-sm">
             <div class="w-full max-w-sm mx-4 p-6 flex flex-col items-center gap-3 rounded-2xl border border-theme bg-card text-center">
                 <button type="button" onclick="closeAbout()" class="material-symbols-outlined text-muted/60 hover:text-main transition-colors self-end -mb-2 -mt-2 -mr-2">close</button>
@@ -317,10 +306,8 @@
             </div>
         </div>
 
-        <!-- ============ CONTENIDO PRINCIPAL ============ -->
         <main class="flex-1 h-full overflow-hidden flex flex-col gap-4">
 
-            <!-- Header -->
             <div class="flex flex-col md:flex-row justify-between items-end gap-4 shrink-0">
                 <div>
                     <div class="flex items-center gap-2 mb-2">
@@ -364,10 +351,8 @@
                 </div>
             </div>
 
-            <!-- Vista: Studio -->
             <div id="view-studio" class="view active flex-1 flex-col gap-4 overflow-hidden">
 
-                <!-- Drop Zone -->
                 <div id="uploadZone" onclick="document.getElementById('fileInput').click()" class="glass-card border-2 border-dashed border-theme flex flex-col items-center justify-center py-6 transition-colors hover:bg-btn-hover hover:border-accent group cursor-pointer shrink-0">
                     <div id="uploadZone-idle" class="flex flex-col items-center">
                         <div class="w-12 h-12 bg-btn mb-3 flex items-center justify-center group-hover:bg-accent transition-colors rounded-xl">
@@ -384,7 +369,6 @@
                     <input type="file" id="fileInput" class="hidden" accept=".mp3,.wav,.mp4,.mkv,.mov" onchange="uploadFile()">
                 </div>
 
-                <!-- Master View -->
                 <div class="glass-card relative flex-1 flex flex-col overflow-hidden p-5 scanline-effect">
 
                     <div class="flex justify-between items-center mb-3 border-b border-theme pb-2 shrink-0">
@@ -393,13 +377,10 @@
                     </div>
 
                     <div class="flex-1 relative overflow-y-auto custom-scrollbar">
-                        <!-- Empty State -->
                         <div id="empty-preview" class="absolute inset-0 flex items-center justify-center opacity-40 pointer-events-none">
                         </div>
 
-                        <!-- Multitrack Container -->
                         <div id="multitrack-container" class="w-full flex flex-col gap-2 relative z-10 hidden">
-                            <!-- Track rows generados por JS -->
                         </div>
 
                         <div class="absolute top-2 right-2 bg-app/80 px-2 py-1 text-[10px] font-data border border-theme rounded z-20" id="badge-decode">
@@ -455,7 +436,6 @@
                 </div>
             </div>
 
-            <!-- Vista: Historial -->
             <div id="view-history" class="view flex-col gap-4 h-full overflow-hidden">
                 <div class="glass-card p-4 flex flex-wrap items-center justify-between gap-4 shrink-0">
                     <div class="flex flex-col gap-0.5 min-w-0">
@@ -481,12 +461,10 @@
                     </div>
                     <p class="text-muted/70 text-[11px] -mt-1 shrink-0" data-i18n="history_hint">Guardado en este navegador. Si recargas la página por accidente mientras trabajas, el último proyecto se reabre solo.</p>
                     <div id="history-list" class="flex flex-col gap-2 overflow-y-auto custom-scrollbar flex-1">
-                        <!-- generado por JS -->
                     </div>
                 </div>
             </div>
 
-            <!-- Footer de estado -->
             <div class="glass-card px-4 py-2 flex justify-between items-center shrink-0">
                 <div class="flex items-center gap-3">
                     <span id="status-dot" class="w-1.5 h-1.5 rounded-full bg-muted"></span>
@@ -497,7 +475,6 @@
         </main>
     </div>
 
-    <!-- JS Logic -->
     <script>
         const stemsInfo = [
             { id: "vocals", label: "VOCALS", color: "#ff3366" },
@@ -558,7 +535,6 @@
             if (f) f.hpf.frequency.value = (val > 0) ? val : 10;
         }
 
-        // ============ Recorte de un fragmento de un stem ============
         function markTrimStart(s_id) {
             const ws = wavesurfers[s_id];
             if (!ws) return;
@@ -603,7 +579,6 @@
             updateTrimDisplay(s_id);
         }
 
-        // ============ Transcripción local con Whisper (pista Vocals) ============
         function resetTranscription(s_id = 'vocals') {
             const btn = document.getElementById(`transcribe_btn_${s_id}`);
             const statusEl = document.getElementById(`transcribe_status_${s_id}`);
@@ -705,17 +680,13 @@
                 const html = `
                 <div id="track-row-${s_id}" class="waveform-row flex flex-col border border-theme bg-input transition-colors mb-2 rounded-xl overflow-hidden">
                     <div class="flex flex-row w-full h-[110px] cursor-pointer" onclick="selectTrack('${s_id}')">
-                        <!-- Left Control Panel (DAW style) -->
                         <div class="w-48 flex-shrink-0 flex bg-card border-r border-theme select-none relative" onclick="event.stopPropagation();" onmousedown="event.stopPropagation();">
-                            <!-- Vertical Meter -->
                             <div class="w-2 h-[110px] bg-app border-r border-theme/50 flex flex-col justify-end relative">
                                 <div class="w-full h-[60%] border-t border-red-500/50 absolute top-0 z-0"></div>
                                 <div id="meter_fill_${s_id}" class="w-full transition-[height] duration-75" style="height: 0%; background: ${stem.color}; box-shadow: 0 0 8px ${stem.color};"></div>
                             </div>
 
-                            <!-- Controls Content -->
                             <div class="flex flex-col flex-1">
-                                <!-- Header -->
                                 <div class="bg-btn px-3 py-1 flex justify-between items-center border-b border-theme">
                                     <span class="text-[11px] font-data font-bold truncate tracking-widest uppercase shadow-sm" style="color: ${stem.color};">${stem.label}</span>
                                     <div class="flex items-center gap-1.5">
@@ -724,13 +695,11 @@
                                     </div>
                                 </div>
 
-                                <!-- Mute / Solo -->
                                 <div class="flex border-b border-theme h-[24px]">
                                     <button id="btn_m_${s_id}" class="flex-1 text-[10px] font-black bg-btn hover:bg-btn-hover text-muted transition-colors border-r border-theme" onclick="toggleMute('${s_id}')">M</button>
                                     <button id="btn_s_${s_id}" class="flex-1 text-[10px] font-black bg-btn hover:bg-btn-hover text-muted transition-colors" onclick="toggleSolo('${s_id}')">S</button>
                                 </div>
 
-                                <!-- Tiny sliders -->
                                 <div class="px-3 py-1.5 flex flex-col gap-2.5 justify-center flex-1 bg-card">
                                     <div class="flex items-center gap-2" title="Volume">
                                         <span class="material-symbols-outlined text-[13px] text-muted/60 pl-[1px]">volume_up</span>
@@ -744,9 +713,7 @@
                             </div>
                         </div>
 
-                        <!-- Waveform Area -->
                         <div class="flex-1 flex flex-col relative bg-app">
-                            <!-- Y-axis scale -->
                             <div class="absolute left-0 top-0 bottom-0 w-8 border-r border-theme/30 flex flex-col justify-between items-center py-1 bg-card/50 z-10 pointer-events-none">
                                 <span class="text-[8px] font-data text-muted/80 leading-none">10</span>
                                 <span class="text-[8px] font-data text-muted/80 leading-none">5</span>
@@ -759,7 +726,6 @@
                         </div>
                     </div>
 
-                    <!-- FX Drawer (Hidden by default) -->
                     <div id="fx_drawer_${s_id}" class="hidden flex-col bg-card border-t border-theme p-3 pl-[192px]" onclick="event.stopPropagation();" onmousedown="event.stopPropagation();">
                         <div class="flex gap-10 items-center pl-6">
                             <!-- Gate: solo se aplica al exportar, un gate real no se puede previsualizar
@@ -773,14 +739,12 @@
                                 <span class="text-[8px] text-muted/50 normal-case font-body" data-i18n="gate_export_only_hint">(solo export)</span>
                             </label>
 
-                            <!-- High-Pass Filter: corta retumbe de viento / rumble de baja frecuencia. Preview en vivo. -->
                             <div class="flex items-center gap-2 pl-6 border-l border-theme" title="Filtro pasa-altos con preview en vivo: se escucha al instante, sin exportar" data-i18n-title="hpf_tooltip">
                                 <span class="text-[10px] text-muted font-bold tracking-widest">HPF</span>
                                 <input type="range" id="hpf_${s_id}" min="0" max="300" step="10" value="0" class="eq-slider w-20" oninput="updateHPF('${s_id}', this.value)" title="Frecuencia de corte (Hz)">
                                 <span class="text-[9px] font-data text-accent w-9 text-right" id="hpf_val_${s_id}">OFF</span>
                             </div>
 
-                            <!-- EQ: preview en vivo -->
                             <div class="flex gap-6 items-center pl-6 border-l border-theme">
                                 <span class="text-[10px] text-muted font-bold tracking-widest underline decoration-theme underline-offset-4" title="Preview en vivo: se escucha al instante, sin exportar" data-i18n-title="eq_tooltip">EQ (3-BAND)</span>
 
@@ -798,7 +762,6 @@
                                 </div>
                             </div>
 
-                            <!-- Recorte: extrae solo un fragmento de este stem, usando la posición de reproducción actual -->
                             <div class="flex items-center gap-2 pl-6 border-l border-theme">
                                 <span class="text-[10px] text-muted font-bold tracking-widest" data-i18n="trim_label">RECORTE</span>
                                 <button onclick="markTrimStart('${s_id}')" class="btn-secondary px-2 py-1 text-[9px] font-bold tracking-widest uppercase rounded" title="Marca el inicio en la posición actual de reproducción" data-i18n-title="trim_in_tooltip">IN</button>
@@ -816,11 +779,10 @@
 
         buildMultitrackUI();
 
-        // Global Level Meters State
         let audioCtx;
         let analysers = {};
         let dataArrays = {};
-        let filters = {}; // { stem_id: { hpf, bass, mid, treble } } — nodos Web Audio para preview en vivo de EQ/HPF
+        let filters = {}; // { stem_id: { hpf, bass, mid, treble, panner } }
         let trimRanges = {}; // { stem_id: { start, end } } — marcas de recorte en segundos
 
         function initMeters() {
@@ -860,7 +822,6 @@
                 meter.style.height = `${fillPct}%`;
             });
 
-            // Master meter
             const masterMeter = document.getElementById('meter_fill_master');
             if(masterMeter) {
                 const masterVolInput = document.getElementById('vol_master');
@@ -874,7 +835,7 @@
         requestAnimationFrame(renderMeters);
 
         function selectTrack(stemId) {
-            if(!currentJobId) return; // Only allow selection if tracks loaded
+            if(!currentJobId) return;
 
             activeStem = stemId;
             stems.forEach(id => {
@@ -890,11 +851,10 @@
         }
 
         function previewChannel(s_id) {
-            // Solo this track and play preview explicitly
             toggleSolo(s_id, true);
             const ws = wavesurfers[s_id];
             if(ws && !ws.isPlaying()) {
-                togglePlay(); // plays all loaded, but only 's_id' is unmuted
+                togglePlay();
             }
         }
 
@@ -906,10 +866,8 @@
             wavesurfers[s_id].setMuted(!isMuted);
 
             if (!isMuted) {
-                // Now Muted
                 btn.className = `flex-1 text-[10px] font-black bg-red-600/50 text-white transition-colors border-r border-theme`;
             } else {
-                // Unmuted
                 btn.className = `flex-1 text-[10px] font-black bg-btn hover:bg-btn-hover text-muted transition-colors border-r border-theme`;
             }
         }
@@ -921,7 +879,6 @@
 
             const btn = document.getElementById(`btn_s_${s_id}`);
             if (soloState === s_id && !forceSolo) {
-                // disable solo
                 soloState = null;
                 stems.forEach(id => {
                     wavesurfers[id]?.setMuted(false);
@@ -929,7 +886,6 @@
                     b.className = "flex-1 text-[10px] font-black bg-btn hover:bg-btn-hover text-muted transition-colors";
                 });
             } else {
-                // activate solo
                 soloState = s_id;
                 stems.forEach(id => {
                     wavesurfers[id]?.setMuted(id !== s_id);
@@ -968,7 +924,6 @@
             if(master_norm) master_norm.checked = false;
         }
 
-        // ============ Formato de salida del render (Export Stems) ============
         const OUTPUT_FORMATS = {
             wav_44100: 'WAV 44.1kHz',
             wav_48000: 'WAV 48kHz',
@@ -1001,8 +956,7 @@
         });
 
         function newProject() {
-            // El job actual no se borra: sigue disponible en el Historial para reanudarlo.
-            // Esto solo limpia la vista de trabajo para empezar de nuevo.
+            // El job sigue disponible en el Historial; esto solo limpia la vista para empezar de nuevo.
             Object.values(wavesurfers).forEach(ws => { if (ws) ws.destroy(); });
             wavesurfers = {};
             analysers = {};
@@ -1079,9 +1033,7 @@
             document.getElementById('uploadZone-processing').classList.remove('flex');
         }
 
-        // ============ Historial de trabajos (persistido en localStorage) ============
-        // Sobrevive a un F5: el backend no pierde el job ni los stems ya separados
-        // mientras el servidor siga corriendo, solo la referencia que tenía el navegador.
+        // Sobrevive a un F5: el backend no pierde el job mientras siga corriendo, solo el navegador pierde la referencia.
         const HISTORY_KEY = 'parrot_job_history';
         const ACTIVE_JOB_KEY = 'parrot_active_job';
 
@@ -1301,7 +1253,6 @@
             mc.classList.remove('hidden');
             document.getElementById('play-controls').style.display = 'flex';
 
-            // Cleanup existing
             Object.values(wavesurfers).forEach(ws => { if(ws) ws.destroy() });
             wavesurfers = {};
 
@@ -1343,10 +1294,7 @@
                         if (!media._hasSource) {
                             const source = audioCtx.createMediaElementSource(media);
 
-                            // Cadena de EQ/HPF en vivo (Web Audio), independiente del volumen
-                            // (que ya se controla en el propio <audio> vía wavesurfer.setVolume).
-                            // Los valores se inicializan desde los sliders actuales y quedan
-                            // "en vivo": moverlos se escucha al instante, sin exportar.
+                            // Cadena EQ/HPF en vivo (Web Audio); el volumen ya se controla aparte vía wavesurfer.setVolume().
                             const hpf = audioCtx.createBiquadFilter();
                             hpf.type = 'highpass';
                             hpf.frequency.value = 10; // "apagado" hasta que el HPF slider suba de 0
@@ -1382,7 +1330,6 @@
                             dataArrays[s_id] = new Uint8Array(analyser.frequencyBinCount);
                             media._hasSource = true;
 
-                            // Aplica el estado actual de los sliders (por si ya se habían tocado).
                             updateHPF(s_id, document.getElementById(`hpf_${s_id}`)?.value ?? 0);
                             updateEQ(s_id);
                             updatePan(s_id, document.getElementById(`pan_${s_id}`)?.value ?? 0);
@@ -1393,9 +1340,7 @@
                 });
             });
 
-            // El área real donde se dibuja la onda queda desplazada por el panel de
-            // controles (w-48) y la regla del eje Y (pl-8) de cada fila; usamos el propio
-            // elemento wf-<id> (y su padding) como referencia para mapear x -> tiempo con precisión.
+            // La onda real está desplazada por el panel (w-48) y el eje Y (pl-8); usamos wf-<id> y su padding para mapear x -> tiempo con precisión.
             function seekToClientX(clientX) {
                 if (!leadWs || !leadWs.getDuration()) return;
                 const refEl = document.getElementById(`wf-${stems[0]}`);
@@ -1440,7 +1385,6 @@
                 document.getElementById('playIcon').innerText = 'play_arrow';
             });
 
-            // Default select the first track to remove the overlay
             setTimeout(() => selectTrack('vocals'), 100);
         }
 
@@ -1518,7 +1462,6 @@
             return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         }
 
-        // ============ Idioma (i18n) ============
         const I18N = {
             es: {
                 sidebar_logo_tooltip: "Sobre Parrot",
@@ -1727,7 +1670,6 @@
             renderHistoryList();
         }
 
-        // ============ Modal "Sobre" (About): se abre al hacer clic en el logo "P." de la barra lateral ============
         function openAbout() {
             document.getElementById('about-modal').classList.remove('hidden');
             document.getElementById('about-modal').classList.add('flex');
@@ -1737,7 +1679,6 @@
             document.getElementById('about-modal').classList.remove('flex');
         }
 
-        // ============ Ajustes: tema y acento (persistidos en localStorage) ============
         function openSettings() {
             document.getElementById('settings-modal').classList.remove('hidden');
             document.getElementById('settings-modal').classList.add('flex');
@@ -1762,7 +1703,6 @@
             });
         }
 
-        // Restaura preferencias guardadas al cargar (tema, acento, idioma)
         (function initTheme() {
             const theme = localStorage.getItem('parrot_ui_theme') || 'dark';
             const color = localStorage.getItem('parrot_ui_color') || 'blue';

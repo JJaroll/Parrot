@@ -13,13 +13,11 @@ from services.separator import AudioSeparatorService
 from services.mixer import AudioMixerService
 from services.transcriber import TranscriptionService
 
-# Initialize logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Parrot API - Audio Separation", version="1.0")
 
-# Allow CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,16 +26,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Project paths
 BASE_DIR = Path(__file__).parent
 UPLOAD_DIR = BASE_DIR / "workspace" / "uploads"
 JOBS_DIR = BASE_DIR / "workspace" / "jobs"
 
-# Ensure directories exist
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 JOBS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Try to mount static files if structure exists
 static_dir = BASE_DIR / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -48,10 +43,8 @@ separator_service = AudioSeparatorService(jobs_dir=str(JOBS_DIR))
 mixer_service = AudioMixerService(jobs_dir=str(JOBS_DIR), uploads_dir=str(UPLOAD_DIR))
 transcriber_service = TranscriptionService(jobs_dir=str(JOBS_DIR), model_size="small")
 
-# Expose workspace for file downloading
 app.mount("/workspace", StaticFiles(directory="workspace"), name="workspace")
 
-# Models
 class StemConfig(BaseModel):
     volume: float = 1.0
     pan: float = 0.0  # -1.0 (izquierda) .. 1.0 (derecha)
@@ -119,12 +112,10 @@ async def start_separation(background_tasks: BackgroundTasks, file: UploadFile =
     job_id = str(uuid.uuid4())
     file_ext = Path(file.filename).suffix
     
-    # Save uploaded file
     file_path = UPLOAD_DIR / f"{job_id}{file_ext}"
     with open(file_path, "wb") as f:
         f.write(await file.read())
         
-    # Queue processing
     JOBS_DB[job_id] = {"status": "queued", "original_file": str(file_path)}
     background_tasks.add_task(process_separation_work, job_id, file_path)
     
@@ -222,7 +213,7 @@ async def merge_stems(job_id: str, request: MergeRequest):
     orig_path = Path(original_file) if original_file else None
     
     try:
-        req_data = request.model_dump() # equivalent to .dict()
+        req_data = request.model_dump()
         output_path = mixer_service.merge_stems(job_id, req_data, original_file=orig_path)
         return {"message": "Merge completado", "output": str(output_path)}
     except Exception as e:

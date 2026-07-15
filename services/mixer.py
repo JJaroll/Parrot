@@ -7,7 +7,6 @@ from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# Presets de formato/calidad para el render final (Export Stems).
 FORMAT_PRESETS = {
     "wav_44100": {"ext": ".wav", "acodec": "pcm_s16le", "ar": 44100},
     "wav_48000": {"ext": ".wav", "acodec": "pcm_s16le", "ar": 48000},
@@ -37,15 +36,12 @@ class AudioMixerService:
         inputs = []
         audio_streams = []
         
-        # Formato/calidad de audio elegido en el frontend
         format_key = request_data.get("output_format", "wav_44100")
         preset = FORMAT_PRESETS.get(format_key, FORMAT_PRESETS["wav_44100"])
 
-        # Determine output format and file
         has_video = False
         out_ext = preset["ext"]
         if original_file and original_file.exists():
-            # Check if it has video
             try:
                 probe = ffmpeg.probe(str(original_file))
                 if any(stream['codec_type'] == 'video' for stream in probe['streams']):
@@ -63,13 +59,11 @@ class AudioMixerService:
                 logger.warning(f"Stem {stem} missing, skipping.")
                 continue
                 
-            # Input stream
             stream = ffmpeg.input(str(stem_file))
             inputs.append(stream)
             
-            # Retrieve stem config or default
             stem_config = request_data.get(stem, {})
-            # Read configuration (using attribute dot notation if it's a Pydantic model parsed dict, or dict key)
+            # Config puede venir como dict (JSON crudo) o como modelo Pydantic con atributos
             if isinstance(stem_config, dict):
                 vol = stem_config.get("volume", 1.0)
                 pan = stem_config.get("pan", 0.0)
@@ -87,24 +81,18 @@ class AudioMixerService:
                 mid_gain = getattr(stem_config, "mid_gain", 0.0)
                 treble_gain = getattr(stem_config, "treble_gain", 0.0)
 
-            # Apply filters serially
             a_stream = stream.audio
 
-            # 0. High-pass filter: corta retumbe de viento / rumble de baja frecuencia
-            # (grabaciones de campo en exteriores) antes del resto de la cadena.
+            # HPF primero: limpia el rumble antes del resto de la cadena
             if highpass_freq and highpass_freq > 0:
                 a_stream = a_stream.filter('highpass', f=highpass_freq)
 
-            # 1. Volume
             if vol != 1.0:
                 a_stream = a_stream.filter('volume', vol)
 
-            # 2. Noise Gate (mostly for vocals)
             if noise_gate:
-                # agate: basic noise gate filter
                 a_stream = a_stream.filter('agate', threshold=0.04, ratio=2, attack=20, release=250)
                 
-            # 3. EQ: Bass, Mid (equalizer), Treble
             if bass_gain != 0.0:
                 a_stream = a_stream.filter('bass', g=bass_gain)
             if mid_gain != 0.0:
@@ -113,7 +101,7 @@ class AudioMixerService:
             if treble_gain != 0.0:
                 a_stream = a_stream.filter('treble', g=treble_gain)
 
-            # 4. Pan (balance estéreo): -1.0 = todo a la izquierda, 1.0 = todo a la derecha.
+            # Pan (balance estéreo): -1.0 = todo a la izquierda, 1.0 = todo a la derecha.
             if pan and pan != 0.0:
                 a_stream = a_stream.filter('stereotools', balance_out=pan)
 
@@ -122,14 +110,11 @@ class AudioMixerService:
         if not audio_streams:
             raise ValueError("No stems found to merge.")
 
-        # Mix all processed audio streams using amix
         mixed_audio = ffmpeg.filter(audio_streams, 'amix', inputs=len(audio_streams), normalize=False)
         
-        # Apply Master Normalization if requested
         if request_data.get("normalize", False):
             mixed_audio = mixed_audio.filter('loudnorm')
             
-        # Optional: mux with video if present
         output_kwargs = {"acodec": preset["acodec"], "ar": preset["ar"], "threads": 0}
         if "audio_bitrate" in preset:
             output_kwargs["audio_bitrate"] = preset["audio_bitrate"]

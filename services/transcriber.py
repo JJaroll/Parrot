@@ -22,8 +22,7 @@ class TranscriptionService:
         self._model = None
 
     def _get_model(self) -> WhisperModel:
-        # Carga perezosa: el modelo (y su descarga la primera vez) solo se paga
-        # cuando alguien pide transcribir, no en el arranque del servidor.
+        # Carga perezosa: el modelo se descarga/carga recién al primer uso, no al arrancar el servidor.
         if self._model is None:
             logger.info(f"Cargando modelo Whisper '{self.model_size}' (CPU, int8)...")
             self._model = WhisperModel(self.model_size, device="cpu", compute_type="int8")
@@ -41,9 +40,7 @@ class TranscriptionService:
         segments, info = model.transcribe(
             str(audio_path),
             beam_size=5,
-            # En música (voces cantadas, coros repetidos) alimentar el texto previo como
-            # contexto hace que Whisper se "atasque" repitiendo la misma frase en loop.
-            # Transcribir cada tramo de forma independiente evita ese bucle.
+            # Evita que Whisper "se atasque" repitiendo la misma frase en loop con letras de canciones.
             condition_on_previous_text=False,
         )
 

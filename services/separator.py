@@ -74,19 +74,15 @@ class AudioSeparatorService:
         job_dir = self.jobs_dir / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
         
-        # Determine if extraction is needed
         is_video = file_path.suffix.lower() in [".mp4", ".mkv", ".mov", ".avi", ".webm"]
         audio_path = job_dir / "source_audio.wav"
 
-        # 1. Extracción de audio vía FFmpeg si es video o compresión
         if is_video or file_path.suffix.lower() != ".wav":
             self.extract_audio(file_path, audio_path)
         else:
-            # Si ya es un WAV limpio, creamos una copia o symlink en el job_dir
             import shutil
             shutil.copy(file_path, audio_path)
 
-        # 2. Separación de 6 Stems vía Demucs
         demucs_out = job_dir / "separated_raw"
         self.run_demucs(audio_path, demucs_out)
         
@@ -102,7 +98,6 @@ class AudioSeparatorService:
             if stem_src.exists():
                 shutil.move(str(stem_src), str(stems_dir / f"{stem}.wav"))
                 
-        # Clean up raw demucs output
         if demucs_out.exists():
             shutil.rmtree(demucs_out)
                 
