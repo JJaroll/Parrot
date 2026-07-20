@@ -41,7 +41,7 @@ jobs:
       # ------------------------------------------------------------------
       - name: "[Windows] Build EXE"
         if: matrix.platform == 'windows'
-        run: pyinstaller --noconfirm --onefile --console --name Parrot launcher.py
+        run: pyinstaller --noconfirm --onefile --console --name Parrot --icon static/logos/parrot_yellow.ico launcher.py
 
       - name: "[Windows] Empaquetar ZIP"
         if: matrix.platform == 'windows'
@@ -69,8 +69,8 @@ jobs:
       - name: "[macOS] Build APP"
         if: matrix.platform == 'macos'
         run: |
-          pyinstaller --noconfirm --windowed --name Parrot launcher.py
-          
+          pyinstaller --noconfirm --windowed --name Parrot --icon static/logos/parrot_yellow.icns launcher.py
+
           mkdir -p dist/Parrot.app/Contents/Resources/src
           cp main.py dist/Parrot.app/Contents/Resources/src/
           cp tray_icon.py dist/Parrot.app/Contents/Resources/src/
@@ -81,6 +81,12 @@ jobs:
           cp -R frontend dist/Parrot.app/Contents/Resources/src/
           cp -R services dist/Parrot.app/Contents/Resources/src/
           cp -R static dist/Parrot.app/Contents/Resources/src/
+
+          # Copiar archivos al bundle DESPUÉS de que PyInstaller lo firmó invalida la firma
+          # ad-hoc (macOS detecta que el contenido no coincide con lo firmado y muestra
+          # "la app está dañada" en vez del más benigno "desarrollador no identificado").
+          # Hay que volver a firmar después de terminar de modificar el bundle.
+          codesign --deep --force --sign - dist/Parrot.app
 
       - name: "[macOS] Instalar create-dmg"
         if: matrix.platform == 'macos'

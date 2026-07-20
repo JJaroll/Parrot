@@ -35,6 +35,9 @@ Parrot incluye un **Smart Launcher** nativo que automatiza por completo la insta
 3. El Launcher instalará Python automáticamente (si no lo tienes) y descargará los requerimientos la primera vez.
 4. ¡Listo! Tu navegador se abrirá con la interfaz de Parrot. Las siguientes veces que lo abras iniciará al instante.
 
+> **⚠️ Nota para usuarios de macOS:**
+> Al ser una aplicación de código abierto sin firma de Apple Developer ID, macOS podría impedir su ejecución inicial por seguridad (Gatekeeper). Si el sistema bloquea la app, dirígete a **Ajustes del Sistema > Privacidad y seguridad**, desplázate hasta el apartado de seguridad y haz clic en **"Abrir de todos modos"** para autorizarla. Si en cambio ves un mensaje de que la app "está dañada", abre la Terminal y ejecuta `xattr -cr /ruta/a/Parrot.app` (usualmente en `~/Downloads` o `/Applications`) antes de intentar abrirla de nuevo.
+
 ### Instalación Manual (Desarrolladores)
 1.  **Clonar el repositorio:**
     ```bash
