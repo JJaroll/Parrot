@@ -50,11 +50,14 @@ jobs:
           mkdir -p Parrot_Windows
           cp dist/Parrot.exe Parrot_Windows/
           cp main.py Parrot_Windows/
+          cp tray_icon.py Parrot_Windows/
+          cp hosts_setup.py Parrot_Windows/
           cp requirements.txt Parrot_Windows/
           cp README.md Parrot_Windows/
           cp TERMS.md Parrot_Windows/
           cp -R frontend Parrot_Windows/
           cp -R services Parrot_Windows/
+          cp -R static Parrot_Windows/
           
           # Comprimir en formato zip
           7z a Parrot_Windows.zip Parrot_Windows/
@@ -70,11 +73,14 @@ jobs:
           
           mkdir -p dist/Parrot.app/Contents/Resources/src
           cp main.py dist/Parrot.app/Contents/Resources/src/
+          cp tray_icon.py dist/Parrot.app/Contents/Resources/src/
+          cp hosts_setup.py dist/Parrot.app/Contents/Resources/src/
           cp requirements.txt dist/Parrot.app/Contents/Resources/src/
           cp README.md dist/Parrot.app/Contents/Resources/src/
           cp TERMS.md dist/Parrot.app/Contents/Resources/src/
           cp -R frontend dist/Parrot.app/Contents/Resources/src/
           cp -R services dist/Parrot.app/Contents/Resources/src/
+          cp -R static dist/Parrot.app/Contents/Resources/src/
 
       - name: "[macOS] Instalar create-dmg"
         if: matrix.platform == 'macos'
@@ -107,21 +113,24 @@ jobs:
           mkdir -p AppDir/usr/bin AppDir/usr/src out_release
           cp -R dist/Parrot/* AppDir/usr/bin/
           cp main.py AppDir/usr/src/
+          cp tray_icon.py AppDir/usr/src/
+          cp hosts_setup.py AppDir/usr/src/
           cp requirements.txt AppDir/usr/src/
           cp README.md AppDir/usr/src/
           cp TERMS.md AppDir/usr/src/
           cp -R frontend AppDir/usr/src/
           cp -R services AppDir/usr/src/
-          
+          cp -R static AppDir/usr/src/
+
           echo "[Desktop Entry]" > AppDir/parrot.desktop
           echo "Name=Parrot" >> AppDir/parrot.desktop
           echo "Exec=Parrot" >> AppDir/parrot.desktop
           echo "Icon=parrot" >> AppDir/parrot.desktop
           echo "Type=Application" >> AppDir/parrot.desktop
           echo "Categories=AudioVideo;" >> AppDir/parrot.desktop
-          
-          touch AppDir/parrot.png # Icono por defecto (puedes reemplazarlo luego)
-          
+
+          cp static/logos/parrot_logo.png AppDir/parrot.png
+
           echo '#!/bin/sh' > AppDir/AppRun
           echo 'HERE="$(dirname "$(readlink -f "${0}")")"' >> AppDir/AppRun
           echo 'export PATH="${HERE}/usr/bin:${PATH}"' >> AppDir/AppRun
