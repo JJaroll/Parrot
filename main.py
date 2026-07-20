@@ -63,16 +63,25 @@ class MergeRequest(BaseModel):
     other: StemConfig = StemConfig()
     normalize: bool = False
     output_format: str = "wav_44100"
+    export_mode: str = "mix"  # "mix" (audio+video), "audio" (solo audio), "video" (solo video, sin audio)
 
 def process_separation_work(job_id: str, file_path: Path):
     try:
         current_job = JOBS_DB.get(job_id, {})
         current_job["status"] = "processing"
+        current_job["progress"] = 0
         JOBS_DB[job_id] = current_job
-        
-        result = separator_service.process_job(job_id, file_path)
-        
+
+        def on_progress(pct: int):
+            job = JOBS_DB.get(job_id, {})
+            job["progress"] = pct
+            JOBS_DB[job_id] = job
+
+        result = separator_service.process_job(job_id, file_path, on_progress=on_progress)
+
+        current_job = JOBS_DB.get(job_id, {})
         current_job.update(result)
+        current_job["progress"] = 100
         JOBS_DB[job_id] = current_job
     except Exception as e:
         logger.error(f"Job {job_id} failed: {e}")
@@ -123,7 +132,6 @@ async def start_separation(background_tasks: BackgroundTasks, file: UploadFile =
 
 @app.get("/api/v1/status/{job_id}")
 async def get_status(job_id: str):
-    """Returns the current status of the separation job."""
     job = JOBS_DB.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -131,7 +139,6 @@ async def get_status(job_id: str):
 
 @app.post("/api/v1/transcribe/{job_id}")
 async def start_transcription(job_id: str, background_tasks: BackgroundTasks, stem: str = "vocals"):
-    """Transcribe un stem ya separado (por defecto 'vocals') con Whisper local, generando .srt y .txt."""
     job = JOBS_DB.get(job_id)
     if not job or job.get("status") != "completed":
         raise HTTPException(status_code=400, detail="Job no está listo (separación no completada)")
@@ -164,7 +171,7 @@ def _format_size(num_bytes: int) -> str:
 
 @app.post("/api/v1/cleanup")
 async def cleanup_workspace():
-    """Borra todo lo generado (uploads originales + stems separados + mixes + transcripciones) para liberar espacio."""
+    #Borra todo lo generado (uploads originales + stems separados + mixes + transcripciones) para liberar espacio.
     freed_bytes = _dir_size(JOBS_DIR) + _dir_size(UPLOAD_DIR)
 
     for directory in (JOBS_DIR, UPLOAD_DIR):
@@ -178,7 +185,7 @@ async def cleanup_workspace():
 
 @app.get("/api/v1/trim/{job_id}")
 async def trim_stem(job_id: str, background_tasks: BackgroundTasks, start: float, end: float, stem: str = "vocals"):
-    """Descarga solo el fragmento [start, end] (segundos) de un stem ya separado, sin fusionar nada."""
+    #Descarga solo el fragmento [start, end] (segundos) de un stem ya separado, sin fusionar nada.
     job = JOBS_DB.get(job_id)
     if not job or job.get("status") != "completed":
         raise HTTPException(status_code=400, detail="Job no está listo (separación no completada)")
@@ -201,10 +208,6 @@ async def trim_stem(job_id: str, background_tasks: BackgroundTasks, start: float
 
 @app.post("/api/v1/merge/{job_id}")
 async def merge_stems(job_id: str, request: MergeRequest):
-    """
-    Lógica de Re-unión (Merge):
-    Aplica post-producción (Gate, EQ, Normalización) y re-renderiza el output
-    """
     job = JOBS_DB.get(job_id)
     if not job or job.get("status") != "completed":
         raise HTTPException(status_code=400, detail="Job no está listo para hacer merge")
@@ -221,5 +224,24 @@ async def merge_stems(job_id: str, request: MergeRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
+    import threading
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)
+    import webbrowser
+    from tray_icon import run_tray_icon
+    from hosts_setup import ensure_local_hostname, HOSTNAME
+
+    HOST = "127.0.0.1"
+    PORT = 8001
+    APP_URL = f"http://{HOSTNAME}:{PORT}" if ensure_local_hostname() else f"http://{HOST}:{PORT}"
+
+    server = uvicorn.Server(uvicorn.Config(app, host=HOST, port=PORT))
+    server_thread = threading.Thread(target=server.run, daemon=True)
+    server_thread.start()
+
+    def _quit_app():
+        os._exit(0)
+
+    threading.Timer(1.0, lambda: webbrowser.open(APP_URL)).start()
+
+    if not run_tray_icon(APP_URL, on_quit=_quit_app):
+        server_thread.join()

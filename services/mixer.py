@@ -20,33 +20,44 @@ class AudioMixerService:
         self.uploads_dir = Path(uploads_dir)
 
     def merge_stems(self, job_id: str, request_data: Dict[str, Any], original_file: Optional[Path] = None) -> Path:
-        """
-        Merge separated stems using advanced FFmpeg filters.
-        applies volume, noise gate, 3-band EQ, and normalization.
-        If original_file is a video, muxes the new audio with the original video (stream copy).
-        Optimized for Mac M1 using -threads 0.
-        """
         job_path = self.jobs_dir / job_id
         stems_dir = job_path / "separated"
-        
+
         if not stems_dir.exists():
             raise FileNotFoundError(f"Stems not found for job {job_id}")
-            
+
+        export_mode = request_data.get("export_mode", "mix")
+
+        if export_mode == "video":
+            if not (original_file and original_file.exists()):
+                raise ValueError("No hay video original para exportar 'solo video'.")
+            out_filepath = job_path / f"video_only{original_file.suffix}"
+            try:
+                vid_stream = ffmpeg.input(str(original_file)).video
+                out = ffmpeg.output(vid_stream, str(out_filepath), vcodec='copy', an=None)
+                out = out.overwrite_output()
+                out.run(capture_stdout=True, capture_stderr=True)
+                return out_filepath
+            except ffmpeg.Error as e:
+                err_log = e.stderr.decode('utf8') if e.stderr else str(e)
+                logger.error(f"FFmpeg error: {err_log}")
+                raise RuntimeError(f"FFmpeg video-only export failed: {err_log}")
+
         stems = ["vocals", "drums", "bass", "piano", "guitar", "other"]
         inputs = []
         audio_streams = []
-        
+
         format_key = request_data.get("output_format", "wav_44100")
         preset = FORMAT_PRESETS.get(format_key, FORMAT_PRESETS["wav_44100"])
 
         has_video = False
         out_ext = preset["ext"]
-        if original_file and original_file.exists():
+        if export_mode != "audio" and original_file and original_file.exists():
             try:
                 probe = ffmpeg.probe(str(original_file))
                 if any(stream['codec_type'] == 'video' for stream in probe['streams']):
                     has_video = True
-                    out_ext = original_file.suffix # e.g. .mp4 or .mkv (el audio sigue usando el preset elegido)
+                    out_ext = original_file.suffix
             except Exception as e:
                 logger.warning(f"Failed to probe original file: {e}")
 
@@ -63,7 +74,6 @@ class AudioMixerService:
             inputs.append(stream)
             
             stem_config = request_data.get(stem, {})
-            # Config puede venir como dict (JSON crudo) o como modelo Pydantic con atributos
             if isinstance(stem_config, dict):
                 vol = stem_config.get("volume", 1.0)
                 pan = stem_config.get("pan", 0.0)
@@ -72,7 +82,7 @@ class AudioMixerService:
                 bass_gain = stem_config.get("bass_gain", 0.0)
                 mid_gain = stem_config.get("mid_gain", 0.0)
                 treble_gain = stem_config.get("treble_gain", 0.0)
-            else: # assume it has attributes if not a dict
+            else:
                 vol = getattr(stem_config, "volume", 1.0)
                 pan = getattr(stem_config, "pan", 0.0)
                 noise_gate = getattr(stem_config, "noise_gate", False)
@@ -136,12 +146,6 @@ class AudioMixerService:
             raise RuntimeError(f"FFmpeg merging failed: {err_log}")
 
     def trim_stem(self, stem_path: Path, start: float, end: float) -> Path:
-        """
-        Corta el rango [start, end] (segundos) de un stem YA separado, sin re-mezclar
-        ni tocar el resto del audio. Usa -c copy (stream copy) sobre WAV/PCM, que es
-        rápido y sample-accurate al no haber keyframes que "redondeen" el corte.
-        Devuelve un archivo temporal; quien llame es responsable de borrarlo.
-        """
         if not stem_path.exists():
             raise FileNotFoundError(f"Stem no encontrado: {stem_path}")
         if end <= start or start < 0:

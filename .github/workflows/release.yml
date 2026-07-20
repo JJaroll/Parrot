@@ -1,0 +1,150 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: macos-latest
+            platform: macos
+            arch_suffix: ARM64
+          - os: ubuntu-latest
+            platform: linux
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar PyInstaller
+        run: pip install pyinstaller
+
+      # ------------------------------------------------------------------
+      # Windows
+      # ------------------------------------------------------------------
+      - name: "[Windows] Build EXE"
+        if: matrix.platform == 'windows'
+        run: pyinstaller --noconfirm --onefile --console --name Parrot launcher.py
+
+      - name: "[Windows] Empaquetar ZIP"
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          mkdir -p Parrot_Windows
+          cp dist/Parrot.exe Parrot_Windows/
+          cp main.py Parrot_Windows/
+          cp requirements.txt Parrot_Windows/
+          cp README.md Parrot_Windows/
+          cp TERMS.md Parrot_Windows/
+          cp -R frontend Parrot_Windows/
+          cp -R services Parrot_Windows/
+          
+          # Comprimir en formato zip
+          7z a Parrot_Windows.zip Parrot_Windows/
+          mkdir out_release && mv Parrot_Windows.zip out_release/
+
+      # ------------------------------------------------------------------
+      # macOS
+      # ------------------------------------------------------------------
+      - name: "[macOS] Build APP"
+        if: matrix.platform == 'macos'
+        run: |
+          pyinstaller --noconfirm --windowed --name Parrot launcher.py
+          
+          mkdir -p dist/Parrot.app/Contents/Resources/src
+          cp main.py dist/Parrot.app/Contents/Resources/src/
+          cp requirements.txt dist/Parrot.app/Contents/Resources/src/
+          cp README.md dist/Parrot.app/Contents/Resources/src/
+          cp TERMS.md dist/Parrot.app/Contents/Resources/src/
+          cp -R frontend dist/Parrot.app/Contents/Resources/src/
+          cp -R services dist/Parrot.app/Contents/Resources/src/
+
+      - name: "[macOS] Instalar create-dmg"
+        if: matrix.platform == 'macos'
+        run: |
+          brew untap aws/tap || true
+          export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
+          brew install create-dmg
+
+      - name: "[macOS] Empaquetar DMG"
+        if: matrix.platform == 'macos'
+        run: |
+          mkdir -p dmg_root out_release
+          cp -R dist/Parrot.app dmg_root/
+          create-dmg \
+            --volname "Parrot" \
+            --window-size 500 300 \
+            --icon-size 100 \
+            --app-drop-link 375 150 \
+            "out_release/Parrot_macOS_${{ matrix.arch_suffix }}.dmg" \
+            "dmg_root/"
+
+      # ------------------------------------------------------------------
+      # Linux
+      # ------------------------------------------------------------------
+      - name: "[Linux] Build Binary"
+        if: matrix.platform == 'linux'
+        run: |
+          pyinstaller --noconfirm --onedir --console --name Parrot launcher.py
+          
+          mkdir -p AppDir/usr/bin AppDir/usr/src out_release
+          cp -R dist/Parrot/* AppDir/usr/bin/
+          cp main.py AppDir/usr/src/
+          cp requirements.txt AppDir/usr/src/
+          cp README.md AppDir/usr/src/
+          cp TERMS.md AppDir/usr/src/
+          cp -R frontend AppDir/usr/src/
+          cp -R services AppDir/usr/src/
+          
+          echo "[Desktop Entry]" > AppDir/parrot.desktop
+          echo "Name=Parrot" >> AppDir/parrot.desktop
+          echo "Exec=Parrot" >> AppDir/parrot.desktop
+          echo "Icon=parrot" >> AppDir/parrot.desktop
+          echo "Type=Application" >> AppDir/parrot.desktop
+          echo "Categories=AudioVideo;" >> AppDir/parrot.desktop
+          
+          touch AppDir/parrot.png # Icono por defecto (puedes reemplazarlo luego)
+          
+          echo '#!/bin/sh' > AppDir/AppRun
+          echo 'HERE="$(dirname "$(readlink -f "${0}")")"' >> AppDir/AppRun
+          echo 'export PATH="${HERE}/usr/bin:${PATH}"' >> AppDir/AppRun
+          echo 'export APPDIR="${HERE}"' >> AppDir/AppRun
+          echo 'exec "${HERE}/usr/bin/Parrot" "$@"' >> AppDir/AppRun
+          chmod +x AppDir/AppRun
+
+      - name: "[Linux] Descargar appimagetool y empaquetar"
+        if: matrix.platform == 'linux'
+        env:
+          ARCH: x86_64
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          wget -q -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x appimagetool
+          ./appimagetool AppDir out_release/Parrot_Linux.AppImage
+
+      # ------------------------------------------------------------------
+      # Publicación
+      # ------------------------------------------------------------------
+      - name: Publicar assets en el Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out_release/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true

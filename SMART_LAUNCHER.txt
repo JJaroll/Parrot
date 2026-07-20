@@ -1,0 +1,120 @@
+================================================================================
+ARQUITECTURA DEL "SMART LAUNCHER" HÍBRIDO (REFERENCIA TÉCNICA)
+================================================================================
+
+Este documento detalla la lógica, decisiones de diseño y trucos técnicos
+utilizados para distribuir aplicaciones de Inteligencia Artificial (basadas
+en PyTorch, Whisper, etc.) mediante un "Smart Launcher" nativo.
+
+--------------------------------------------------------------------------------
+1. EL PROBLEMA (¿Por qué no usar simplemente PyInstaller con todo adentro?)
+--------------------------------------------------------------------------------
+En aplicaciones estándar (como Cicada), PyInstaller es genial para meter
+todas las dependencias en un solo archivo.
+Sin embargo, en aplicaciones de IA esto es inviable porque:
+a) El ejecutable pesaría más de 5 GB debido a PyTorch y modelos pre-entrenados.
+b) PyInstaller tendría que descomprimir esos 5 GB en una carpeta temporal (/tmp)
+   CADA VEZ que el usuario abre la aplicación, tardando varios minutos en iniciar.
+c) Las librerías de hardware (CUDA, cuDNN, MPS de Mac) se empaquetan estáticamente,
+   lo que causa fallos graves en máquinas que no tienen exactamente el mismo
+   hardware que el Runner de GitHub Actions donde se compiló.
+
+--------------------------------------------------------------------------------
+2. LA SOLUCIÓN: LAUNCHER HÍBRIDO
+--------------------------------------------------------------------------------
+Consiste en separar la app en dos partes:
+- Un Ejecutable (.exe, .app, .AppImage) "hueco", de solo 5 MB, que contiene
+  únicamente las instrucciones de qué hacer, empaquetado con PyInstaller.
+- El Código Fuente original (main.py, requirements.txt) provisto en la misma
+  carpeta del ejecutable (o empaquetado *dentro* de él).
+
+El Launcher asume todo el trabajo sucio. Cuando se abre por primera vez, actúa
+como un Instalador Silencioso. Las veces siguientes, actúa como el Ejecutable Final.
+
+--------------------------------------------------------------------------------
+3. EXPLICACIÓN DE LA LÓGICA PASO A PASO
+--------------------------------------------------------------------------------
+
+A) Detección de Directorios (Cross-Platform)
+   El launcher necesita encontrar "main.py" y "requirements.txt". Como es un
+   ejecutable, sys.executable devuelve rutas muy raras.
+   - En macOS (.app): El binario se ejecuta desde "Contents/MacOS/Parrot". El
+     script sube dos carpetas e ingresa a "Resources/src" donde guardamos el código.
+   - En Linux (AppImage): El AppImage se monta a sí mismo como un sistema de
+     archivos virtual en /tmp. Detectamos la variable "$APPDIR" inyectada y
+     buscamos en "$APPDIR/usr/src".
+   - En Windows (.exe): Simplemente asume que el código está extraído en la
+     misma carpeta donde está el .exe.
+
+B) Ubicación del Entorno Virtual (Aislamiento de permisos)
+   El entorno no se instala donde está el programa. Se instala en el directorio
+   "Home" del usuario (ej. %USERPROFILE%\.parrot_studio\venv o ~/.parrot_studio/venv).
+   Razón técnica: Si el usuario movió tu App a "Archivos de Programa" o a
+   "Applications" (macOS), no tendremos permisos de escritura para descargar los
+   gigas de IA. Al ponerlo en su Home local, aseguramos permisos infinitos.
+
+C) Instalación y Auto-Detección de Python (La Magia Silenciosa)
+   - El script usa `shutil.which("python")` para verificar si existe.
+   - Si no existe, descarga el paquete instalador oficial de python.org mediante
+     `urllib.request`.
+
+   - MAGIA EN WINDOWS:
+     Usa subprocesos para llamar a: `python-installer.exe /quiet InstallAllUsers=0 PrependPath=1`
+     - `/quiet`: Oculta la interfaz (No hay ventanas).
+     - `InstallAllUsers=0`: Instala "Solo para el usuario actual". Esto es
+       CRÍTICO porque evade por completo la pantalla de permisos de Administrador (UAC).
+     - `PrependPath=1`: Añade Python a las variables de entorno del sistema automáticamente.
+     *Bypass del PATH*: Como la instalación fue silenciosa y las variables del
+     sistema no se recargan en caliente en el script, el Launcher no confía en
+     el PATH. Accede directamente a la carpeta absoluta de LocalAppData
+     (%LocalAppData%\Programs\Python\Python311\python.exe) para crear el venv al instante.
+
+   - MAGIA EN macOS:
+     macOS requiere permisos "sudo" para instalar paquetes .pkg.
+     Usa subprocesos para llamar a `osascript`. Esto levanta una ventana emergente
+     NATIVA de Mac pidiendo TouchID / Contraseña, que es la única manera autorizada
+     por Apple para escalar privilegios desde una app descargada. Luego instala
+     el .pkg apuntando a la raíz (`-target /`).
+
+D) Cuadros de Diálogo Nativos sin Dependencias
+   Para avisar al usuario de lo que ocurre sin mostrar una aburrida y fea
+   consola negra (y sin importar enormes librerías UI como PyQt), se usa
+   el sistema base:
+   - Windows: ctypes.windll.user32.MessageBoxW (Directamente usando la API de Windows).
+   - macOS: subprocess con `osascript -e 'display dialog...'` (AppleScript nativo).
+   - Linux: zenity o kdialog (Estándar en la mayoría de distros Linux con entorno gráfico).
+
+E) Ejecución y Apertura de Navegador
+   - Lanza el proceso del servidor (FastAPI) de forma independiente con subprocess.Popen.
+   - Se le inyecta `cwd=str(app_data_dir)`, para que cualquier archivo que la API
+     genere (audios temporales, configuraciones) caiga en ~/.parrot_studio/
+     y no ensucie la carpeta de instalación.
+   - El Launcher NO abre el navegador ni maneja la URL: eso quedó delegado por
+     completo a main.py (ver `hosts_setup.py` y el bloque `if __name__ ==
+     "__main__"` de main.py), que además levanta el ícono de bandeja del
+     sistema. Mantener esa lógica en un solo lugar evita el riesgo de abrir el
+     navegador dos veces o antes de que "parrot.local" esté resuelto (ver F).
+
+F) URL Amigable: "http://parrot.local:8001" en vez de la IP
+   En lugar de que el usuario vea "http://127.0.0.1:8001", cada arranque de
+   main.py revisa (`hosts_setup.is_hostname_mapped`) si el archivo hosts del
+   sistema ya resuelve "parrot.local" a 127.0.0.1. Si no existe, la agrega
+   pidiendo UNA SOLA vez elevación de privilegios (osascript con
+   "administrator privileges" en macOS, un PowerShell elevado con
+   `Start-Process -Verb RunAs -Wait` en Windows, `pkexec`/`sudo` en Linux). La
+   entrada persiste entre reinicios, así que en lanzamientos siguientes el
+   chequeo es instantáneo y no vuelve a pedir permisos. El servidor sigue
+   escuchando en 127.0.0.1: "parrot.local" es solo un alias resuelto vía
+   hosts, no un bind de red distinto. Si por lo que sea no se pudo escribir el
+   archivo hosts (sin permisos, sistema de solo lectura, etc.), se cae de
+   vuelta a la IP cruda sin romper el arranque.
+
+================================================================================
+CONCLUSIÓN Y USO FUTURO
+================================================================================
+Con esta arquitectura puedes distribuir CUALQUIER sistema hecho en Python
+(Django, Flask, FastAPI, Scripts complejos de IA) garantizando una experiencia
+nativa (Doble-Click) y un peso de distribución ínfimo (< 10 MB). 
+
+La infraestructura pesada siempre será descargada localmente, optimizada y
+gestionada sin que el usuario sea consciente del proceso subyacente.
