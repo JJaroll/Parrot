@@ -273,7 +273,15 @@ def run_install_with_gui(steps):
     import threading
     import queue
 
-    root = tk.Tk()
+    try:
+        # En Linux sin entorno gráfico (WSL sin WSLg, una sesión SSH sin X forwarding,
+        # etc.) esto no aborta el proceso como el caso de Tk viejo de más arriba, pero
+        # sí tira una excepción de Python (TclError: no display) al no encontrar
+        # DISPLAY/Wayland. Sin este try/except, esa excepción quedaría sin capturar y
+        # tumbaría el launcher entero en vez de caer al modo consola.
+        root = tk.Tk()
+    except Exception:
+        return _run_without_gui()
     root.title("Instalando Parrot")
     root.geometry("560x420")
     root.resizable(False, False)
