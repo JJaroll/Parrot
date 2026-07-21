@@ -27,15 +27,21 @@ app.add_middleware(
 )
 
 BASE_DIR = Path(__file__).parent
-UPLOAD_DIR = BASE_DIR / "workspace" / "uploads"
-JOBS_DIR = BASE_DIR / "workspace" / "jobs"
+# El código fuente (BASE_DIR) y los datos del usuario (DATA_DIR) pueden vivir en lugares
+# distintos: el launcher arranca main.py con cwd=~/.parrot_studio a propósito, para no
+# escribir uploads/jobs dentro de la carpeta de instalación (o, peor, dentro del .app
+# empaquetado). En modo desarrollo (python3 main.py suelto) ambos coinciden.
+DATA_DIR = Path.cwd()
+UPLOAD_DIR = DATA_DIR / "workspace" / "uploads"
+JOBS_DIR = DATA_DIR / "workspace" / "jobs"
+WORKSPACE_DIR = DATA_DIR / "workspace"
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 JOBS_DIR.mkdir(parents=True, exist_ok=True)
 
 static_dir = BASE_DIR / "static"
 if static_dir.exists():
-    app.mount("/static", StaticFiles(directory="static"), name="static")
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # Mock In-Memory Job DB
 JOBS_DB = {}
@@ -43,7 +49,7 @@ separator_service = AudioSeparatorService(jobs_dir=str(JOBS_DIR))
 mixer_service = AudioMixerService(jobs_dir=str(JOBS_DIR), uploads_dir=str(UPLOAD_DIR))
 transcriber_service = TranscriptionService(jobs_dir=str(JOBS_DIR), model_size="small")
 
-app.mount("/workspace", StaticFiles(directory="workspace"), name="workspace")
+app.mount("/workspace", StaticFiles(directory=str(WORKSPACE_DIR)), name="workspace")
 
 class StemConfig(BaseModel):
     volume: float = 1.0

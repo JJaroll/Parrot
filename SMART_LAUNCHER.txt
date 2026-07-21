@@ -109,6 +109,160 @@ F) URL Amigable: "http://parrot.local:8001" en vez de la IP
    archivo hosts (sin permisos, sistema de solo lectura, etc.), se cae de
    vuelta a la IP cruda sin romper el arranque.
 
+--------------------------------------------------------------------------------
+4. PROBLEMAS REALES ENCONTRADOS Y CÓMO SE RESOLVIERON
+--------------------------------------------------------------------------------
+Registro de bugs concretos que aparecieron poniendo este launcher a prueba en una
+Mac real (no en el Runner de CI), y las lecciones que dejaron. Vale la pena leer
+esto ANTES de tocar el launcher o de reusar esta arquitectura en otro proyecto.
+
+G) Detectar Python existente en macOS sin confiar solo en el PATH
+   shutil.which("python3") puede devolver None aunque el usuario SÍ tenga Python
+   instalado: las apps lanzadas con doble clic en Finder no heredan el PATH
+   completo del shell (no leen .zshrc/.bash_profile), así que solo ven un PATH
+   mínimo del sistema. Antes de asumir que falta Python y disparar una
+   reinstalación innecesaria, hay que buscar directo en las rutas típicas:
+   /opt/homebrew/bin/python3, /usr/local/bin/python3 y
+   /Library/Frameworks/Python.framework/Versions/3.*/bin/python3 (ver
+   find_mac_python() en launcher.py).
+
+H) install_python() debe devolver una ruta absoluta, no un nombre de comando
+   Igual que el Bypass del PATH ya documentado para Windows (sección C), en
+   macOS el instalador oficial de python.org tampoco actualiza el PATH del
+   proceso que ya está corriendo. Devolver el string suelto "python3" después
+   de instalar puede hacer que el siguiente subprocess.run() falle con "no
+   encontrado" AUNQUE LA INSTALACIÓN HAYA SIDO EXITOSA. Hay que apuntar directo
+   a /Library/Frameworks/Python.framework/Versions/3.11/bin/python3 (la ruta
+   donde el instalador oficial deja el binario).
+
+I) Una instalación que falla a mitad de camino no debe darse por buena
+   Antes, el launcher solo revisaba si existía el venv para decidir si tenía
+   que instalar. Si "pip install -r requirements.txt" fallaba después de crear
+   el venv, el siguiente arranque encontraba el venv (parcial) y saltaba directo
+   a ejecutar main.py con un entorno incompleto (le faltaban paquetes clave como
+   torch o uvicorn). Ahora se escribe un archivo marca (venv/.install_complete)
+   recién cuando TODOS los pasos de instalación terminan con éxito, y esa marca
+   -no la existencia del venv- es lo que se revisa en el siguiente arranque.
+
+J) requirements.txt fijado con "pip freeze" no es portable entre versiones de Python
+   Un archivo generado con pip freeze en una versión de Python puede no instalar
+   en otra, de formas que no son obvias con un solo intento:
+   - Un paquete pinneado (Pillow==12.3.0) puede requerir una versión de Python
+     más nueva que la que terminó usando el venv real.
+   - Peor: una dependencia transitiva puede tener un requisito CONDICIONAL al
+     Python de turno (typer, instalado por huggingface_hub, exige
+     "click>=8.2.1; python_version >= 3.10"), en conflicto con otro paquete
+     pinneado a mano (click==8.1.8) que solo funciona bien en Python < 3.10.
+     En este caso NINGUNA versión de click satisface los dos requisitos al
+     mismo tiempo, así que la solución no es "subir la versión de click": es
+     sacar el pin explícito del paquete conflictivo (typer) y dejar que pip
+     elija la versión correcta según el Python de turno.
+   Lección: no fijar con "==" paquetes que el código propio no importa
+   directamente (revisar con grep antes de pinnear). Y antes de dar por bueno
+   un requirements.txt, validarlo con "pip install --dry-run -r requirements.txt"
+   contra CADA versión de Python que el launcher podría llegar a usar (la que
+   auto-instala Y cualquier Python 3.9+ preexistente razonable) - no alcanza con
+   probarlo una sola vez en un solo entorno.
+
+K) Faltantes de runtime que no se detectan al instalar, solo al ejecutar
+   torchaudio no trae su propio backend de audio: sin el paquete "soundfile"
+   instalado, "pip install" termina sin ningún error, pero separar un audio de
+   verdad falla recién en tiempo de ejecución con
+   "RuntimeError: Couldn't find appropriate backend...". Este tipo de falta
+   silenciosa solo aparece probando la funcionalidad real de punta a punta, no
+   con que "pip install" haya corrido bien. Conviene probar el flujo completo
+   (no solo la instalación) antes de dar por cerrada una lista de dependencias.
+
+L) Ventana de progreso con tkinter (viene con Python, no agrega peso)
+   La instalación de paquetes de IA tarda varios minutos; mostrar solo un
+   diálogo inicial y nada más deja al usuario sin ninguna señal de que algo
+   está pasando. Se agregó una ventana con barra de progreso + panel de logs en
+   vivo, con varias lecciones no obvias en el camino:
+
+   - Tk viejo puede abortar el proceso entero: algunas instalaciones de Python
+     en macOS (la de Xcode Command Line Tools, en particular) traen el Tcl/Tk
+     8.5 del sistema, deprecado por Apple hace años. En macOS moderno,
+     tk.Tk() con ese Tk aborta el proceso completo (SIGABRT nativo, NO una
+     excepción de Python capturable con try/except). Hay que chequear
+     tk.TkVersion < 8.6 ANTES de instanciar tk.Tk(), y si es viejo, caer a un
+     modo sin ventana (notificaciones nativas + consola) en vez de arriesgarse.
+
+   - Progreso realista: pip imprime todas las líneas "Collecting X" de entrada
+     (resolución de metadatos), mucho antes de bajar/compilar/instalar nada.
+     Contar solo esas líneas hace que la barra salte a ~100% casi de
+     inmediato y se quede pegada ahí durante la parte más lenta (descargas
+     grandes, compilación de wheels). Sumar también "Downloading"/"Using
+     cached"/"Building wheel for" contra un denominador más generoso reparte
+     el avance de forma pareja a lo largo de todo el proceso.
+
+   - Un botón agregado recién al final puede quedar invisible: si la ventana
+     tiene tamaño fijo y un widget expansible (el panel de logs, con
+     expand=True) ya ocupó todo el espacio disponible, un botón nuevo
+     agregado después no tiene dónde dibujarse. Hay que reservarle su espacio
+     (un frame propio) DESDE EL ARRANQUE de la ventana, y solo reconfigurar
+     texto/comando al terminar - nunca empaquetarlo (pack()) por primera vez
+     al final.
+
+   - EL HALLAZGO MÁS IMPORTANTE, y el más difícil de diagnosticar: incluso con
+     todo lo anterior corregido y con logs de diagnóstico confirmando que
+     root.destroy() retorna sin ningún error, la ventana puede quedar
+     visualmente "zombie" en pantalla con el cursor de carga infinito. La
+     causa: al crear una ventana de Tk, el proceso completo queda registrado
+     ante el WindowServer de macOS como una app Cocoa/AppKit. Si el proceso
+     sigue vivo después de destruir la ventana pero sin volver a bombear el
+     loop de eventos de Cocoa (por ejemplo, porque ya volvió a ser código
+     Python plano esperando un subproceso con process.wait()), el WindowServer
+     puede no completar el protocolo de cierre y deja el resto visual
+     colgado. La ÚNICA solución confiable: dejar de supervisar al proceso hijo
+     y terminar el proceso del launcher por completo (os._exit(0)) apenas
+     cumple su función (dejar a main.py corriendo como proceso
+     independiente). Terminar el proceso entero es la única forma garantizada
+     de que el sistema operativo libere cualquier resto visual de una ventana
+     de Tk ya destruida a nivel de código - no hay arreglo "desde adentro" de
+     la ventana para esto.
+
+   - Cancelación real de una instalación en curso: no alcanza con un flag que
+     el hilo de trabajo revisa entre pasos, porque ese hilo puede estar
+     bloqueado leyendo línea por línea la salida de un subproceso que no está
+     por terminar solo. Hace falta guardar una referencia al subproceso activo
+     para poder hacerle terminate() de inmediato al cancelar, además del flag
+     (threading.Event) que se revisa entre pasos y dentro del loop de lectura.
+
+M) Diálogo inicial con Cancelar real, no solo un botón "OK" decorativo
+   El diálogo "Primera ejecución detectada" original tenía un solo botón "OK"
+   que igual dejaba continuar la instalación sin importar qué se hiciera -no
+   había forma de arrepentirse antes de una descarga de varios GB. Un
+   confirm_msg() con botones reales de Cancelar/Instalar necesita CAPTURAR qué
+   botón se apretó: en macOS, parseando "button returned:X" del stdout de
+   osascript (show_msg original no capturaba stdout); en Windows,
+   MessageBoxW con MB_OKCANCEL comparando el resultado con IDOK; en Linux, el
+   código de salida de "zenity --question" / "kdialog --yesno".
+
+N) Empaquetado (release.yml de GitHub Actions)
+   - El workflow de PyInstaller no copiaba los módulos Python nuevos
+     (tray_icon.py, hosts_setup.py) ni la carpeta static/ al paquete final,
+     aunque main.py los importa/usa sin manejo de errores: la app compilada se
+     hubiera caído apenas alguien la abriera. CUALQUIER módulo nuevo en la raíz
+     del proyecto que main.py importe tiene que agregarse a la lista de copia
+     en las 3 plataformas del workflow, no solo a requirements.txt.
+   - Sin "--icon" en el comando de PyInstaller, el ejecutable queda con el
+     ícono genérico de Python en vez del propio.
+   - "La app está dañada y no puede abrirse" en macOS (un mensaje MÁS agresivo
+     que el habitual "desarrollador no identificado", que NO se puede sortear
+     desde Ajustes del Sistema > Privacidad y Seguridad): pasa cuando se
+     modifica el contenido de un .app DESPUÉS de que PyInstaller ya lo firmó
+     (firma ad-hoc, automática en Apple Silicon). Copiar archivos fuente
+     dentro de Contents/Resources/src DESPUÉS del paso de pyinstaller invalida
+     esa firma. Hay que volver a firmar (codesign --deep --force --sign -)
+     DESPUÉS de terminar de modificar el bundle, nunca antes.
+   - "Waiting for a runner to pick up this job" colgado en GitHub Actions no es
+     necesariamente un bug del workflow: puede ser una caída real del lado de
+     GitHub (verificable en githubstatus.com, componente "Actions"). En el
+     pasado (Cicada) sí fue causado por pedir un runner de macOS pinneado a una
+     versión específica (macos-13) que GitHub terminó retirando; por eso el
+     matrix de este workflow usa siempre los alias "-latest", nunca versiones
+     fijas de runner.
+
 ================================================================================
 CONCLUSIÓN Y USO FUTURO
 ================================================================================
