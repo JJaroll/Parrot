@@ -319,6 +319,83 @@ P) --windowed en Windows: sin consola visible, pero sys.stdout/stderr en None
      tenga una, porque main.py corre con el python.exe normal del venv (un
      binario de subsistema "consola", no "windows").
 
+Q) Detección de GPU NVIDIA e instalación condicional de CUDA
+   requirements.txt fija torch==2.8.0/torchaudio==2.8.0 sin índice especial, así
+   que "pip install" normal siempre trae el build CPU-only en Windows/Linux
+   (los wheels con soporte CUDA NO están en el PyPI por defecto, viven en un
+   índice aparte de pytorch.org). Aunque el usuario tenga una GPU NVIDIA
+   carísima, sin este paso quedaría corriendo Demucs/Whisper por CPU sin darse
+   cuenta.
+   - Detección: shutil.which("nvidia-smi") (lo instala el driver oficial de
+     NVIDIA junto con la GPU, no hace falta nada del CUDA Toolkit completo).
+     Si existe, se corre y se parsea la línea "CUDA Version: X.Y" de su salida
+     -la versión MÁXIMA de CUDA que el driver soporta-, y se elige la build de
+     torch (cu126/cu128/cu129, las únicas que existen para torch==2.8.0,
+     verificado contra download.pytorch.org antes de escribir el código) más
+     nueva que sea <= esa versión. Si el driver es más viejo que cu126, se cae
+     a CPU sin preguntar (no hay build compatible para ofrecer).
+   - Si hay una build compatible, se pregunta con confirm_msg() (ver R) si
+     instalar CUDA o CPU -no se asume nada-, porque el build CUDA pesa varios
+     GB más.
+   - Instalación en dos pasos, no uno: primero
+     "pip install torch==2.8.0 torchaudio==2.8.0 --index-url
+     https://download.pytorch.org/whl/cuXXX", y recién después el resto de
+     requirements.txt (SIN las líneas de torch/torchaudio) desde el índice
+     normal. No se puede resolver todo junto: --index-url reemplaza el índice
+     por defecto para esa invocación entera, y aunque el índice de pytorch.org
+     sí mirror-ea la mayoría de las dependencias transitivas de torch (se
+     verificó con curl antes de asumirlo), mezclarlo con el resto de
+     requirements.txt en una sola invocación no es necesario y complica el
+     debugging si algo sale mal. Además, si el paso general reinstalara
+     torch/torchaudio desde el índice normal DESPUÉS del paso CUDA, pip podría
+     pisar la build +cuXXX con la CPU-only (la comparación de versiones "==
+     2.8.0" no distingue de forma confiable un local version "+cu126" del
+     build plano), por eso esas dos líneas se sacan de la lista general.
+   - Limitación conocida: no se pudo probar el flujo real de instalación CUDA
+     de punta a punta (no hay una GPU NVIDIA disponible para probar en el
+     entorno de desarrollo). Se validó "a mano" que los wheels realmente
+     existen en download.pytorch.org para las versiones de Python soportadas,
+     y que las dependencias transitivas de torch están mirroreadas en ese
+     mismo índice, pero no un "pip install" real con GPU de por medio.
+
+R) Diálogos con dos opciones reales, más allá de Cancelar/Instalar
+   confirm_msg() (ver M) se generalizó para aceptar yes_label/no_label
+   personalizados, reutilizado ahora para la pregunta de CUDA vs CPU. Un
+   detalle importante de plataforma: en Windows, MessageBoxW NO permite
+   re-etiquetar sus botones nativos (solo ofrece combinaciones fijas como
+   OK/Cancelar o Sí/No) -a diferencia de macOS (osascript) y Linux
+   (zenity/kdialog), que sí soportan texto de botón arbitrario-. La solución en
+   Windows es usar Sí/No y aclarar en el cuerpo del mensaje qué significa cada
+   uno ("[Sí] = Instalar versión CUDA"), en vez de intentar la API más compleja
+   de TaskDialog solo para poder personalizar el texto de los botones.
+
+S) Instalador de Windows con Inno Setup (en vez del .zip suelto)
+   Parrot se distribuía en Windows como un .zip simple (Parrot.exe + código
+   fuente), sin accesos directos ni desinstalador. Cicada (el otro proyecto de
+   este mismo autor) ya resolvía esto con Inno Setup
+   (cicada_installer.iss); se adaptó el mismo patrón a parrot_installer.iss.
+   - Diferencia clave con Cicada: el PyInstaller de Cicada es autocontenido
+     (BUNDLE() empaqueta todo adentro), así que su [Files] solo necesita
+     copiar el .exe. El launcher de Parrot es "hueco" (ver secciones 1-2): el
+     código fuente real (main.py, tray_icon.py, hosts_setup.py,
+     requirements.txt, frontend/, services/, static/) tiene que copiarse
+     SUELTO junto al .exe en el mismo directorio de instalación, porque
+     get_source_dir() en Windows asume que main.py vive al lado del
+     ejecutable.
+   - DefaultDirName={autopf}\Parrot (Archivos de Programa) no genera ningún
+     conflicto de permisos porque Parrot nunca escribe nada ahí en tiempo de
+     ejecución: todo lo generado (venv, workspace) vive en ~/.parrot_studio
+     (ver sección B), no en el directorio de instalación.
+   - El acceso directo al Menú Inicio se crea siempre; el del Escritorio queda
+     detrás de un [Tasks] sin marcar por defecto (Flags: unchecked), así el
+     usuario elige durante la instalación en vez de que se le imponga.
+   - Limitación conocida: no se pudo compilar realmente el .iss (no hay Inno
+     Setup Compiler disponible en el entorno de desarrollo) ni probar el
+     instalador resultante en una Windows real. Se armó a mano, línea por
+     línea, contra el archivo de Cicada que sí está comprobado que funciona en
+     producción -conviene revisar el primer build que genere el workflow con
+     cuidado antes de asumir que compiló bien-.
+
 ================================================================================
 CONCLUSIÓN Y USO FUTURO
 ================================================================================

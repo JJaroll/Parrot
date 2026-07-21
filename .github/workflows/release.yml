@@ -43,25 +43,20 @@ jobs:
         if: matrix.platform == 'windows'
         run: pyinstaller --noconfirm --onefile --windowed --name Parrot --icon static/logos/parrot_yellow.ico launcher.py
 
-      - name: "[Windows] Empaquetar ZIP"
+      - name: "[Windows] Instalar Inno Setup"
+        if: matrix.platform == 'windows'
+        run: choco install innosetup --no-progress -y
+
+      - name: "[Windows] Compilar instalador con Inno Setup"
+        if: matrix.platform == 'windows'
+        run: iscc parrot_installer.iss
+
+      - name: "[Windows] Preparar artefacto final"
         if: matrix.platform == 'windows'
         shell: bash
         run: |
-          mkdir -p Parrot_Windows
-          cp dist/Parrot.exe Parrot_Windows/
-          cp main.py Parrot_Windows/
-          cp tray_icon.py Parrot_Windows/
-          cp hosts_setup.py Parrot_Windows/
-          cp requirements.txt Parrot_Windows/
-          cp README.md Parrot_Windows/
-          cp TERMS.md Parrot_Windows/
-          cp -R frontend Parrot_Windows/
-          cp -R services Parrot_Windows/
-          cp -R static Parrot_Windows/
-          
-          # Comprimir en formato zip
-          7z a Parrot_Windows.zip Parrot_Windows/
-          mkdir out_release && mv Parrot_Windows.zip out_release/
+          mkdir -p out_release
+          cp dist_installer/Parrot_Setup_Windows.exe out_release/
 
       # ------------------------------------------------------------------
       # macOS

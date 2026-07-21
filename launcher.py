@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import json
+import re
 from pathlib import Path
 import shutil
 import urllib.request
@@ -37,31 +38,36 @@ def show_msg(title, text):
     except Exception as e:
         print(f"{title}: {text}")
 
-def confirm_msg(title, text):
-    """Como show_msg, pero con opción real de Cancelar. Devuelve True si el usuario
-    eligió continuar (o si el diálogo se cerró solo por el timeout en macOS, igual que
-    antes), False si canceló explícitamente."""
+def confirm_msg(title, text, yes_label="Instalar", no_label="Cancelar"):
+    """Diálogo con dos opciones reales (yes_label/no_label, configurables). Devuelve
+    True si el usuario eligió la opción de "yes_label" (o si el diálogo se cerró
+    solo por el timeout en macOS, cae a ese default), False si eligió "no_label".
+    En Windows, MessageBoxW no permite re-etiquetar sus botones nativos, así que se
+    usa Sí/No con el texto del cuerpo aclarando qué hace cada uno."""
     try:
         if sys.platform == "darwin":
             script = (
                 f'display dialog "{text}" with title "{title}" '
-                f'buttons {{"Cancelar", "Instalar"}} default button "Instalar" giving up after 30'
+                f'buttons {{"{no_label}", "{yes_label}"}} default button "{yes_label}" giving up after 30'
             )
             result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
-            return "button returned:Cancelar" not in result.stdout
+            return f"button returned:{no_label}" not in result.stdout
         elif sys.platform == "win32":
             import ctypes
-            MB_OKCANCEL = 0x1
-            MB_ICONINFORMATION = 0x40
-            IDOK = 1
-            res = ctypes.windll.user32.MessageBoxW(0, text, title, MB_OKCANCEL | MB_ICONINFORMATION)
-            return res == IDOK
+            MB_YESNO = 0x4
+            MB_ICONQUESTION = 0x20
+            IDYES = 6
+            full_text = f"{text}\n\n[Sí] = {yes_label}\n[No] = {no_label}"
+            res = ctypes.windll.user32.MessageBoxW(0, full_text, title, MB_YESNO | MB_ICONQUESTION)
+            return res == IDYES
         else:
             if shutil.which("zenity"):
-                res = subprocess.run(["zenity", "--question", "--title", title, "--text", text])
+                res = subprocess.run(["zenity", "--question", "--title", title, "--text", text,
+                                       "--ok-label", yes_label, "--cancel-label", no_label])
                 return res.returncode == 0
             elif shutil.which("kdialog"):
-                res = subprocess.run(["kdialog", "--yesno", text, "--title", title])
+                res = subprocess.run(["kdialog", "--yesno", text, "--title", title,
+                                       "--yes-label", yes_label, "--no-label", no_label])
                 return res.returncode == 0
             else:
                 print(f"{title}: {text}")
@@ -194,6 +200,36 @@ def ensure_ffmpeg():
     except Exception as e:
         print(f"[Parrot] No se pudo descargar ffmpeg automáticamente: {e}")
 
+    return None
+
+# Builds CUDA de torch/torchaudio 2.8.0 confirmadas en download.pytorch.org (de más
+# nueva a más vieja). Se usa la más nueva que el driver de la GPU soporte.
+TORCH_CUDA_INDEXES = [((12, 9), "cu129"), ((12, 8), "cu128"), ((12, 6), "cu126")]
+
+
+def detect_cuda_index():
+    """Busca nvidia-smi (lo instala el driver oficial de NVIDIA junto con la GPU) para
+    saber si hay una GPU compatible con CUDA disponible, y hasta qué versión de CUDA
+    soporta el driver instalado. Devuelve el nombre del índice de PyTorch más nuevo
+    compatible ("cu129"/"cu128"/"cu126"), o None si no hay GPU NVIDIA o el driver es
+    demasiado viejo para cualquiera de las builds de torch==2.8.0 disponibles.
+
+    Solo tiene sentido en Windows/Linux: las Mac modernas no llevan GPU NVIDIA (usan
+    MPS de Apple Silicon, ya soportado por el wheel estándar de PyPI sin nada especial)."""
+    if sys.platform == "darwin" or not shutil.which("nvidia-smi"):
+        return None
+    try:
+        result = subprocess.run(["nvidia-smi"], capture_output=True, text=True, timeout=10)
+        match = re.search(r"CUDA Version:\s*([\d.]+)", result.stdout)
+        if not match:
+            return None
+        driver_cuda = tuple(int(x) for x in match.group(1).split("."))
+    except Exception:
+        return None
+
+    for min_version, index_name in TORCH_CUDA_INDEXES:
+        if driver_cuda >= min_version:
+            return index_name
     return None
 
 def run_install_with_gui(steps):
@@ -498,12 +534,42 @@ def main():
                 system_python = install_python()
 
         req_lines = [l for l in requirements.read_text(encoding="utf-8").splitlines() if l.strip() and not l.strip().startswith("#")]
+
+        cuda_index = detect_cuda_index()
+        use_cuda = False
+        if cuda_index:
+            use_cuda = confirm_msg(
+                "GPU NVIDIA detectada",
+                "Se detectó una GPU NVIDIA compatible con CUDA en este equipo.\n\n"
+                "La versión CUDA usa la GPU para acelerar varias veces la separación de audio, "
+                "pero descarga varios GB adicionales. La versión CPU es más liviana pero más lenta.",
+                yes_label="Instalar versión CUDA",
+                no_label="Instalar versión CPU",
+            )
+
         install_steps = [
             ("Creando entorno virtual...", [system_python, "-m", "venv", str(venv_dir)], None),
             ("Actualizando pip...", [str(python_exe), "-m", "pip", "install", "--upgrade", "pip"], None),
-            ("Instalando PyTorch, Whisper y Demucs (puede tardar varios minutos)...",
-             [str(python_exe), "-m", "pip", "install", "-r", str(requirements)], len(req_lines)),
         ]
+
+        if use_cuda:
+            install_steps.append((
+                f"Instalando PyTorch con soporte CUDA ({cuda_index})...",
+                [str(python_exe), "-m", "pip", "install", "torch==2.8.0", "torchaudio==2.8.0",
+                 "--index-url", f"https://download.pytorch.org/whl/{cuda_index}"],
+                2,
+            ))
+            # Ya quedaron instalados vía el índice de CUDA; si el paso general los
+            # reinstalara desde PyPI normal pisaría la build CUDA con la de CPU (pip no
+            # distingue de forma confiable "torch==2.8.0" de "torch==2.8.0+cuXXX" al
+            # comparar versiones), así que se sacan de la lista general.
+            req_lines = [l for l in req_lines if not l.lower().startswith(("torch==", "torchaudio=="))]
+
+        install_steps.append((
+            "Instalando PyTorch, Whisper y Demucs (puede tardar varios minutos)...",
+            [str(python_exe), "-m", "pip", "install"] + req_lines,
+            len(req_lines),
+        ))
 
         ok, error = run_install_with_gui(install_steps)
         if not ok:

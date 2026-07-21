@@ -31,8 +31,8 @@ Parrot incluye un **Smart Launcher** nativo que automatiza por completo la insta
 
 ### Instalación Rápida (Usuarios)
 1. Ve a la pestaña de [Releases](../../releases) en GitHub y descarga la versión para tu sistema operativo.
-2. Haz doble clic en el ejecutable (`Parrot.exe`, `Parrot.app` o `Parrot_Linux.AppImage`).
-3. El Launcher instalará Python automáticamente (si no lo tienes) y descargará los requerimientos la primera vez.
+2. **Windows:** corré `Parrot_Setup_Windows.exe` y seguí el instalador (podés elegir crear acceso directo en el Escritorio). **macOS:** abrí `Parrot.app`. **Linux:** dale permisos de ejecución y corré `Parrot_Linux.AppImage`.
+3. El Launcher instalará Python automáticamente (si no lo tienes) y descargará los requerimientos la primera vez. Si detecta una GPU NVIDIA compatible, te va a preguntar si preferís la versión acelerada por CUDA o la versión CPU.
 4. ¡Listo! Tu navegador se abrirá con la interfaz de Parrot. Las siguientes veces que lo abras iniciará al instante.
 
 > **⚠️ Nota para usuarios de macOS:**

@@ -436,7 +436,7 @@
                 <div class="flex flex-col gap-1 border-t border-theme pt-4">
                     <span class="font-label-caps text-[10px] text-muted/60" data-i18n="settings_engine_label">Motor de
                         separación</span>
-                    <span class="font-data text-[13px] text-main">Demucs v4 &middot; Apple Silicon MPS</span>
+                    <span class="font-data text-[13px] text-main" id="engine-info-settings">Demucs v4</span>
                 </div>
 
                 <div class="flex gap-2 justify-end items-center pt-2">
@@ -781,7 +781,7 @@
                     <span id="status-text" class="text-muted font-data text-[10px] tracking-widest uppercase">SYSTEM
                         READY</span>
                 </div>
-                <span class="text-muted/70 font-data text-[10px] uppercase tracking-widest">Apple Silicon MPS</span>
+                <span class="text-muted/70 font-data text-[10px] uppercase tracking-widest" id="engine-info-footer">···</span>
             </div>
         </main>
     </div>
@@ -2275,6 +2275,20 @@
             selectColor(color);
         })();
         applyLanguage(currentLang);
+
+        async function loadEngineInfo() {
+            try {
+                const res = await fetch('/api/v1/system-info');
+                const data = await res.json();
+                const labels = { cuda: 'NVIDIA CUDA', mps: 'Apple Silicon MPS', cpu: 'CPU' };
+                const label = labels[data.device] || (data.device || '').toUpperCase();
+                document.getElementById('engine-info-footer').innerText = label;
+                document.getElementById('engine-info-settings').innerText = `Demucs v4 · ${label}`;
+            } catch (e) {
+                console.error('No se pudo obtener info de hardware', e);
+            }
+        }
+        loadEngineInfo();
 
         // Si había un trabajo abierto antes del reload, lo retoma solo.
         (function autoResume() {

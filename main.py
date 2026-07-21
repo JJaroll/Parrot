@@ -118,6 +118,12 @@ async def serve_ui():
     """Serves the Parrot Frontend Dashboard."""
     return FileResponse(BASE_DIR / "frontend" / "index.html")
 
+@app.get("/api/v1/system-info")
+async def system_info():
+    """Hardware que Demucs/Whisper van a usar en esta máquina (cuda/mps/cpu),
+    para que el frontend lo muestre en vez de un texto fijo."""
+    return {"device": AudioSeparatorService.get_device()}
+
 @app.post("/api/v1/separate")
 async def start_separation(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     """Ingest endpoint: uploads file and queues separation."""
