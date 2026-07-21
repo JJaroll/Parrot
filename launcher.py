@@ -1,10 +1,22 @@
 import os
 import sys
 import subprocess
+import json
 from pathlib import Path
 import shutil
 import urllib.request
 import tempfile
+
+# Con --windowed (Windows/macOS), el ejecutable no tiene consola adjunta y
+# sys.stdout/stderr quedan en None: cualquier print() suelto tira una excepción no
+# capturada y aborta el proceso. En vez de perder esa información (útil para
+# diagnosticar problemas), se redirige a un archivo de log.
+if sys.stdout is None or sys.stderr is None:
+    _log_dir = Path.home() / ".parrot_studio"
+    _log_dir.mkdir(parents=True, exist_ok=True)
+    _log_file = open(_log_dir / "launcher.log", "a", encoding="utf-8", buffering=1)
+    sys.stdout = _log_file
+    sys.stderr = _log_file
 
 def show_msg(title, text):
     #Muestra un cuadro de diálogo nativo según el sistema operativo.
@@ -82,6 +94,106 @@ def find_mac_python():
     for path in candidates:
         if Path(path).exists():
             return path
+    return None
+
+# Windows/Linux: builds estáticas con licencia LGPL explícita, de BtbN/FFmpeg-Builds
+# (proyecto en GitHub activamente mantenido, con "latest" como tag estable que no
+# cambia de URL entre versiones).
+FFMPEG_WIN_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip"
+FFMPEG_LINUX_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-lgpl.tar.xz"
+
+
+def _extract_named_binaries(archive_path, wanted_names, dest_dir):
+    """Busca dentro del archivo (.zip o .tar.xz) los binarios cuyo nombre de archivo
+    coincida con wanted_names -sin importar en qué carpeta interna estén dentro del
+    archivo- y los copia sueltos (sin subcarpetas) a dest_dir."""
+    found = set()
+    if str(archive_path).endswith(".zip"):
+        import zipfile
+        with zipfile.ZipFile(archive_path) as zf:
+            for member in zf.namelist():
+                base = Path(member).name
+                if base in wanted_names and base not in found:
+                    with zf.open(member) as src, open(dest_dir / base, "wb") as dst:
+                        dst.write(src.read())
+                    found.add(base)
+    else:
+        import tarfile
+        with tarfile.open(archive_path, "r:xz") as tf:
+            for member in tf.getmembers():
+                base = Path(member.name).name
+                if member.isfile() and base in wanted_names and base not in found:
+                    extracted = tf.extractfile(member)
+                    if extracted:
+                        with open(dest_dir / base, "wb") as dst:
+                            dst.write(extracted.read())
+                    found.add(base)
+    return found
+
+
+def _fetch_evermeet_url(tool_name):
+    """macOS: evermeet.cx expone una API estable que siempre devuelve la versión más
+    reciente, así que no hace falta hardcodear un número de versión (quedaría
+    desactualizado). Sus builds compilan con --enable-gpl (no LGPL, a diferencia de
+    las de Windows/Linux) porque no se encontró una fuente de binarios estáticos
+    para macOS igual de confiable y mantenida que sí fuera LGPL."""
+    with urllib.request.urlopen(f"https://evermeet.cx/ffmpeg/info/{tool_name}/release", timeout=15) as r:
+        data = json.load(r)
+    return data["download"]["zip"]["url"]
+
+
+def ensure_ffmpeg():
+    """
+    Se asegura de que 'ffmpeg' y 'ffprobe' estén disponibles, descargando binarios
+    estáticos a ~/.parrot_studio/bin/ la primera vez si no se encuentran ya en el
+    PATH del sistema ni de una descarga anterior. services/separator.py y
+    services/mixer.py llaman a ffmpeg/ffprobe por PATH (vía ffmpeg-python), así que
+    esto no requiere tocar nada de ese código: alcanza con anteponer la carpeta
+    devuelta al PATH del proceso de main.py (ver main()).
+
+    Devuelve la carpeta a anteponer al PATH, o None si no hace falta (el sistema ya
+    los tiene) o si la descarga falló (main.py se las arreglará con lo que haya en
+    el sistema, igual que antes de este fix).
+    """
+    exe_suffix = ".exe" if sys.platform == "win32" else ""
+    wanted = {f"ffmpeg{exe_suffix}", f"ffprobe{exe_suffix}"}
+
+    if shutil.which("ffmpeg") and shutil.which("ffprobe"):
+        return None
+
+    bin_dir = Path.home() / ".parrot_studio" / "bin"
+    if all((bin_dir / name).exists() for name in wanted):
+        return str(bin_dir)
+
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    notify_progress("Descargando ffmpeg (una sola vez, puede tardar un minuto)...")
+
+    try:
+        if sys.platform == "win32":
+            archive_urls = [FFMPEG_WIN_URL]
+        elif sys.platform == "darwin":
+            archive_urls = [_fetch_evermeet_url("ffmpeg"), _fetch_evermeet_url("ffprobe")]
+        else:
+            archive_urls = [FFMPEG_LINUX_URL]
+
+        for url in archive_urls:
+            archive_path = bin_dir / Path(url).name
+            urllib.request.urlretrieve(url, archive_path)
+            _extract_named_binaries(archive_path, wanted, bin_dir)
+            archive_path.unlink(missing_ok=True)
+
+        if sys.platform != "win32":
+            for name in wanted:
+                path = bin_dir / name
+                if path.exists():
+                    os.chmod(path, 0o755)
+
+        if all((bin_dir / name).exists() for name in wanted):
+            return str(bin_dir)
+        print("[Parrot] No se pudo obtener ffmpeg/ffprobe del paquete descargado.")
+    except Exception as e:
+        print(f"[Parrot] No se pudo descargar ffmpeg automáticamente: {e}")
+
     return None
 
 def run_install_with_gui(steps):
@@ -403,7 +515,24 @@ def main():
 
     # FASE DE EJECUCIÓN
     print("Iniciando servidor Parrot...")
-    subprocess.Popen([str(python_exe), str(main_py)], cwd=str(app_data_dir))
+
+    ffmpeg_bin_dir = ensure_ffmpeg()
+    env = os.environ.copy()
+    if ffmpeg_bin_dir:
+        env["PATH"] = ffmpeg_bin_dir + os.pathsep + env.get("PATH", "")
+
+    # main.py queda sin consola propia (lanzado desde este launcher --windowed).
+    # Redirigir su salida a un archivo evita que un print()/logging suelto lo tumbe
+    # (mismo problema de stdout/stderr en None que más arriba) y deja un log
+    # consultable si algo falla, en vez de perder esa información por completo.
+    server_log = open(app_data_dir / "parrot_server.log", "a", encoding="utf-8", buffering=1)
+    popen_kwargs = {"cwd": str(app_data_dir), "env": env, "stdout": server_log, "stderr": server_log}
+    if sys.platform == "win32":
+        # Sin esto, Windows puede abrirle su propia ventana de consola a main.py
+        # aunque el launcher no tenga una.
+        popen_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+    subprocess.Popen([str(python_exe), str(main_py)], **popen_kwargs)
     print("Parrot quedó corriendo como proceso independiente (ver el ícono de bandeja para cerrarlo).")
 
     # Terminar el proceso del todo (en vez de quedarse esperando con process.wait()) es la

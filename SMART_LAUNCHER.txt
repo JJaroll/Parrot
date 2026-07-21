@@ -263,6 +263,62 @@ N) Empaquetado (release.yml de GitHub Actions)
      matrix de este workflow usa siempre los alias "-latest", nunca versiones
      fijas de runner.
 
+O) Dependencias que no son paquetes de pip: el caso de ffmpeg
+   pip install puede terminar 100% exitoso y la app puede seguir fallando en
+   tiempo de ejecución si depende de un binario externo del sistema. Acá pasó
+   con ffmpeg: services/separator.py y services/mixer.py usan la librería
+   "ffmpeg-python", que es solo un wrapper fino que shellea al ejecutable
+   "ffmpeg"/"ffprobe" del sistema -no lo trae empaquetado-. En una Mac de
+   desarrollo esto pasa desapercibido porque casi siempre ya hay ffmpeg
+   instalado (Homebrew u otra herramienta), pero en una Windows limpia
+   revienta con "[WinError 2] El sistema no puede encontrar el archivo
+   especificado" justo al separar el primer audio.
+   - La solución sigue el mismo patrón que install_python(): ensure_ffmpeg()
+     revisa primero si el sistema ya lo tiene en el PATH; si no, descarga
+     binarios estáticos a ~/.parrot_studio/bin/ la primera vez y antepone esa
+     carpeta al PATH del proceso de main.py (vía el parámetro env= de
+     subprocess.Popen). Esto no requiere tocar servicios/, porque
+     ffmpeg-python ya resuelve el ejecutable por PATH.
+   - Fuentes usadas: BtbN/FFmpeg-Builds en GitHub para Windows/Linux (proyecto
+     activamente mantenido, con builds LGPL explícitas separadas de las GPL, y
+     un tag "latest" que no cambia de URL entre versiones). Para macOS no se
+     encontró una fuente de binarios estáticos LGPL igual de confiable
+     -evermeet.cx, la más conocida, compila con --enable-gpl-, así que se usó
+     GPL ahí por decisión consciente del proyecto (aceptando la implicancia de
+     licencia), no por descuido.
+   - evermeet.cx expone además una API JSON estable
+     (https://evermeet.cx/ffmpeg/info/<ffmpeg|ffprobe>/release) que siempre
+     devuelve la URL de la versión más reciente: conviene consultarla en vez
+     de hardcodear un número de versión, que quedaría desactualizado.
+   - Lección general: para cualquier dependencia que sea un binario del
+     sistema (no un paquete de pip), hay que probar el flujo real de la
+     funcionalidad en una máquina limpia de cada SO -no alcanza con que el
+     entorno de desarrollo la tenga instalada de antes por otra razón-.
+
+P) --windowed en Windows: sin consola visible, pero sys.stdout/stderr en None
+   El build de Windows usaba --console (PyInstaller), así que Parrot.exe dejaba
+   una ventana de terminal negra abierta todo el tiempo que la app corre -
+   distinto a macOS, donde --windowed no muestra nada-. Cambiar a --windowed
+   soluciona eso, pero trae una trampa clásica y poco obvia: sin consola
+   adjunta, sys.stdout y sys.stderr quedan en None, y CUALQUIER print() suelto
+   (los hay por todos lados: en el launcher y en main.py) tira una excepción no
+   capturada y aborta el proceso silenciosamente -exactamente el tipo de bug
+   que no se ve hasta que alguien lo prueba en una Windows real con esta
+   variante del build-.
+   - Solución: al arrancar, si sys.stdout/stderr son None, se redirigen a un
+     archivo de log (~/.parrot_studio/launcher.log) en vez de dejarlos en None
+     o silenciarlos del todo. Así no se pierde la información para
+     diagnosticar problemas, solo deja de aparecer en una ventana.
+   - Lo mismo aplica al proceso hijo (main.py): al lanzarlo con
+     subprocess.Popen desde un launcher ya sin consola, hay que redirigir
+     explícitamente su stdout/stderr a otro archivo de log
+     (~/.parrot_studio/parrot_server.log) en vez de dejar que herede un
+     descriptor inválido. Además, en Windows específicamente, hay que pasar
+     creationflags=subprocess.CREATE_NO_WINDOW al lanzarlo: sin esto, Windows
+     puede abrirle su propia ventanita de consola al hijo aunque el padre no
+     tenga una, porque main.py corre con el python.exe normal del venv (un
+     binario de subsistema "consola", no "windows").
+
 ================================================================================
 CONCLUSIÓN Y USO FUTURO
 ================================================================================

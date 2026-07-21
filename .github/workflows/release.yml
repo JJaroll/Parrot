@@ -41,7 +41,7 @@ jobs:
       # ------------------------------------------------------------------
       - name: "[Windows] Build EXE"
         if: matrix.platform == 'windows'
-        run: pyinstaller --noconfirm --onefile --console --name Parrot --icon static/logos/parrot_yellow.ico launcher.py
+        run: pyinstaller --noconfirm --onefile --windowed --name Parrot --icon static/logos/parrot_yellow.ico launcher.py
 
       - name: "[Windows] Empaquetar ZIP"
         if: matrix.platform == 'windows'

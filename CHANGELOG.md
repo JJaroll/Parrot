@@ -6,6 +6,8 @@ Todos los cambios notables de este proyecto se documentarán en este archivo.
 ### Agregado
 - Nota en el README sobre cómo abrir la app en macOS si Gatekeeper la bloquea o la marca como dañada.
 - El instalador (`launcher.py`) ahora muestra una ventana con barra de progreso y logs en vivo durante la instalación (usando `tkinter`, sin agregar dependencias pesadas), en vez de no dar ninguna señal de avance.
+- El launcher ahora se asegura de que `ffmpeg`/`ffprobe` estén disponibles: si no los encuentra en el sistema, descarga binarios estáticos a `~/.parrot_studio/bin/` la primera vez (LGPL explícita en Windows/Linux vía BtbN/FFmpeg-Builds; GPL en macOS, por decisión consciente al no encontrarse una fuente LGPL para Mac igual de confiable) y los antepone al PATH del proceso de `main.py`, sin tocar el código de `services/`.
+- En Windows, `Parrot.exe` ya no abre una consola visible que se queda corriendo de fondo (build cambiado de `--console` a `--windowed`, igual que macOS). Como esto deja `sys.stdout`/`stderr` en `None` (un `print()` suelto tira una excepción y aborta el proceso), se redirige toda la salida del launcher a `~/.parrot_studio/launcher.log`, y la de `main.py` (el servidor) a `~/.parrot_studio/parrot_server.log` — nada de información se pierde, solo deja de mostrarse en una ventana de consola.
 
 ### Corregido
 - El ícono de la app compilada era el genérico de Python: faltaba el flag `--icon` en los comandos de PyInstaller (Windows/macOS).
