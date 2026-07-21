@@ -221,6 +221,20 @@ L) Ventana de progreso con tkinter (viene con Python, no agrega peso)
      de Tk ya destruida a nivel de código - no hay arreglo "desde adentro" de
      la ventana para esto.
 
+   - IMPORTANTE - este os._exit(0) es SOLO para macOS, no para Linux: en el
+     empaquetado AppImage, el proceso del launcher es el que mantiene viva la
+     carpeta temporal (montada por FUSE, o auto-extraída con
+     --appimage-extract-and-run) donde vive main.py -get_source_dir() en
+     Linux apunta a $APPDIR/usr/src-. Matar ese proceso de golpe hace
+     desaparecer esa carpeta, y main.py (que ya está corriendo, pero recién
+     arrancando) se cae a mitad de camino al no encontrar sus propios
+     archivos. Se detectó porque el server respondía "conexión rechazada"
+     apenas un segundo después de decir "Parrot quedó corriendo...". La regla
+     general: cualquier optimización de cierre de proceso pensada para un
+     problema de UN sistema operativo hay que revisar si tiene sentido en los
+     otros -acá "terminar rápido" era la solución correcta en macOS y la causa
+     de un bug nuevo en Linux-.
+
    - Cancelación real de una instalación en curso: no alcanza con un flag que
      el hilo de trabajo revisa entre pasos, porque ese hilo puede estar
      bloqueado leyendo línea por línea la salida de un subproceso que no está

@@ -30,6 +30,7 @@ Todos los cambios notables de este proyecto se documentarán en este archivo.
 - Separar un video daba `RuntimeError: Couldn't find appropriate backend to handle uri ... and format None` al guardar los stems: a `torchaudio` le faltaba un backend de audio instalado (`soundfile`), que no estaba en `requirements.txt`. Agregado (`soundfile==0.13.1`, compatible con Python 3.9 y 3.11+).
 - El primer diálogo ("Primera ejecución detectada...") no daba forma real de cancelar antes de arrancar una instalación de varios GB — solo tenía un botón "OK" que igual continuaba. Ahora tiene "Cancelar" / "Instalar" y cancelar corta el arranque sin instalar nada.
 - En Linux sin entorno gráfico (ej. WSL sin WSLg), `tk.Tk()` tira una excepción de Python por no encontrar `DISPLAY` (a diferencia del crash nativo de Tk viejo en macOS, ver más arriba). Esa excepción no estaba capturada y tumbaba el launcher entero en vez de caer al modo consola; ahora sí.
+- En el AppImage de Linux, `main.py` quedaba inaccesible (conexión rechazada al segundo de arrancar): el `os._exit(0)` agregado para el bug de la ventana zombie de macOS también mataba, en Linux, al proceso que mantiene viva la carpeta temporal (montada por FUSE o auto-extraída) donde vive `main.py` dentro del AppImage. Sin ese proceso vivo, la carpeta desaparece y `main.py` se cae a mitad de arranque. Ahora ese `os._exit(0)` es específico de macOS; en Linux el launcher vuelve a esperar con `process.wait()`, como antes de ese fix.
 
 ## [0.1.0] - 2026-07-19
 ### Agregado

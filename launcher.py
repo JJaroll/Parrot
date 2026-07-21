@@ -606,8 +606,21 @@ def main():
         # aunque el launcher no tenga una.
         popen_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
-    subprocess.Popen([str(python_exe), str(main_py)], **popen_kwargs)
+    process = subprocess.Popen([str(python_exe), str(main_py)], **popen_kwargs)
     print("Parrot quedó corriendo como proceso independiente (ver el ícono de bandeja para cerrarlo).")
+
+    if sys.platform == "linux":
+        # Empaquetado como AppImage, ESTE proceso es el que mantiene viva la carpeta
+        # temporal (montada por FUSE o auto-extraída) donde vive main.py -según
+        # get_source_dir(), main.py corre desde $APPDIR/usr/src-. Si termina antes de
+        # tiempo, esa carpeta desaparece y main.py se cae a mitad de arranque (imports
+        # que fallan al no encontrar sus propios archivos). A diferencia de macOS (ver
+        # abajo), en Linux/AppImage este proceso SÍ tiene que quedarse esperando.
+        try:
+            process.wait()
+        except KeyboardInterrupt:
+            process.terminate()
+        return
 
     # Terminar el proceso del todo (en vez de quedarse esperando con process.wait()) es la
     # forma confiable de que macOS se saque de encima cualquier resto visual de la ventana de
@@ -615,7 +628,10 @@ def main():
     # WindowServer puede dejarla "zombie" en pantalla (cursor de carga infinito) aunque el
     # código ya la haya destruido correctamente, porque nada vuelve a bombear el loop de
     # eventos de Cocoa una vez terminado root.mainloop(). main.py no depende de este proceso
-    # (no hereda pipes ni nada por el estilo), así que puede seguir corriendo solo.
+    # (no hereda pipes ni nada por el estilo), así que puede seguir corriendo solo. En
+    # Windows no hace falta este workaround, pero tampoco molesta: los archivos de main.py
+    # ya quedaron copiados de forma permanente por el instalador de Inno Setup, no dependen
+    # de que este proceso siga vivo.
     os._exit(0)
 
 if __name__ == "__main__":
