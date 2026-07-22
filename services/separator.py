@@ -17,7 +17,6 @@ class AudioSeparatorService:
 
     @staticmethod
     def get_device() -> str:
-        """Hardware autodetection: mps for Mac M1/Apple Silicon, cuda for NVIDIA, else CPU."""
         try:
             import torch
             if torch.cuda.is_available():

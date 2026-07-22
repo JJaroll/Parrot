@@ -295,15 +295,49 @@ O) Dependencias que no son paquetes de pip: el caso de ffmpeg
      ffmpeg-python ya resuelve el ejecutable por PATH.
    - Fuentes usadas: BtbN/FFmpeg-Builds en GitHub para Windows/Linux (proyecto
      activamente mantenido, con builds LGPL explícitas separadas de las GPL, y
-     un tag "latest" que no cambia de URL entre versiones). Para macOS no se
-     encontró una fuente de binarios estáticos LGPL igual de confiable
-     -evermeet.cx, la más conocida, compila con --enable-gpl-, así que se usó
-     GPL ahí por decisión consciente del proyecto (aceptando la implicancia de
-     licencia), no por descuido.
+     un tag "latest" que no cambia de URL entre versiones).
+   - macOS, revisión de licencia: la primera versión de esto usaba evermeet.cx
+     (GPL, --enable-gpl) porque no se encontró una fuente de binarios estáticos
+     LGPL para Mac igual de confiable. Al re-auditar la licencia se confirmó
+     que Parrot NO necesita nada de lo que aporta GPL en ffmpeg: separator.py
+     y mixer.py nunca recodifican video (solo vcodec='copy', stream-copy) y
+     para audio usan pcm_s16le y libmp3lame -LGPL, no requiere --enable-gpl-.
+     La configuración por defecto de ffmpeg YA es LGPL-only (GPL/nonfree piden
+     --enable-gpl/--enable-nonfree explícitos); no hacía falta seguir
+     dependiendo de una build GPL de terceros.
+   - Solución: release.yml ahora compila su propio ffmpeg para macOS ARM64 en
+     el runner de GitHub Actions, con --disable-gpl --disable-nonfree
+     --enable-libmp3lame, y lo publica como asset del release
+     (Parrot_ffmpeg_macos_arm64_lgpl.zip). Recipe real usada (ffmpeg 8.1.2):
+       brew install nasm lame pkg-config
+       ./configure --disable-gpl --disable-nonfree --disable-doc \
+         --disable-debug --disable-ffplay --enable-libmp3lame \
+         --extra-cflags="-I$(brew --prefix lame)/include" \
+         --extra-ldflags="-L$(brew --prefix lame)/lib"
+     Nota: pkg-config solo no alcanza para detectar libmp3lame porque el
+     formulero "lame" de Homebrew no instala un .pc -hay que apuntar
+     --extra-cflags/--extra-ldflags directo a esos paths-.
+   - Validado localmente antes de meterlo en CI: build real (~1m25s en Apple
+     Silicon) + 4 pruebas funcionales cubriendo los tres casos reales de
+     Parrot (extracción a WAV, encode a MP3, stream-copy de video) más un
+     chequeo de que --enable-gpl/--enable-nonfree quedan deshabilitados. Los
+     binarios resultantes pesan ~21.8MB cada uno -mucho más liviano que
+     evermeet.cx (~80MB) o BtbN (~114MB), que traen encoders GPL/nonfree que
+     Parrot no usa-.
+   - ensure_ffmpeg() en macOS intenta primero PARROT_FFMPEG_MACOS_URL
+     (github.com/JJaroll/Parrot/releases/latest/download/..., el patrón
+     estable de GitHub que no cambia de URL entre versiones) y, si falla
+     -por ejemplo porque el repo todavía es privado y esa URL no resuelve sin
+     token, o el asset no existe aún por no haberse cortado un release nuevo
+     con el paso de CI agregado-, cae automáticamente a evermeet.cx (GPL) como
+     respaldo, igual que antes. La idea es que el respaldo deje de usarse en
+     la práctica en cuanto el repo se haga público (con el lanzamiento de
+     1.0.0) y exista al menos un release compilado con el nuevo paso.
    - evermeet.cx expone además una API JSON estable
      (https://evermeet.cx/ffmpeg/info/<ffmpeg|ffprobe>/release) que siempre
      devuelve la URL de la versión más reciente: conviene consultarla en vez
-     de hardcodear un número de versión, que quedaría desactualizado.
+     de hardcodear un número de versión, que quedaría desactualizado. Se
+     mantiene esa lógica solo para el camino de respaldo.
    - Lección general: para cualquier dependencia que sea un binario del
      sistema (no un paquete de pip), hay que probar el flujo real de la
      funcionalidad en una máquina limpia de cada SO -no alcanza con que el

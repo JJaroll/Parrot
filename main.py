@@ -27,10 +27,6 @@ app.add_middleware(
 )
 
 BASE_DIR = Path(__file__).parent
-# El código fuente (BASE_DIR) y los datos del usuario (DATA_DIR) pueden vivir en lugares
-# distintos: el launcher arranca main.py con cwd=~/.parrot_studio a propósito, para no
-# escribir uploads/jobs dentro de la carpeta de instalación (o, peor, dentro del .app
-# empaquetado). En modo desarrollo (python3 main.py suelto) ambos coinciden.
 DATA_DIR = Path.cwd()
 UPLOAD_DIR = DATA_DIR / "workspace" / "uploads"
 JOBS_DIR = DATA_DIR / "workspace" / "jobs"
@@ -115,18 +111,14 @@ def process_transcription_work(job_id: str, stem: str):
 
 @app.get("/", response_class=FileResponse)
 async def serve_ui():
-    """Serves the Parrot Frontend Dashboard."""
     return FileResponse(BASE_DIR / "frontend" / "index.html")
 
 @app.get("/api/v1/system-info")
 async def system_info():
-    """Hardware que Demucs/Whisper van a usar en esta máquina (cuda/mps/cpu),
-    para que el frontend lo muestre en vez de un texto fijo."""
     return {"device": AudioSeparatorService.get_device()}
 
 @app.post("/api/v1/separate")
 async def start_separation(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
-    """Ingest endpoint: uploads file and queues separation."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file uploaded")
         

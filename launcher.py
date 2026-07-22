@@ -8,10 +8,6 @@ import shutil
 import urllib.request
 import tempfile
 
-# Con --windowed (Windows/macOS), el ejecutable no tiene consola adjunta y
-# sys.stdout/stderr quedan en None: cualquier print() suelto tira una excepción no
-# capturada y aborta el proceso. En vez de perder esa información (útil para
-# diagnosticar problemas), se redirige a un archivo de log.
 if sys.stdout is None or sys.stderr is None:
     _log_dir = Path.home() / ".parrot_studio"
     _log_dir.mkdir(parents=True, exist_ok=True)
@@ -39,11 +35,6 @@ def show_msg(title, text):
         print(f"{title}: {text}")
 
 def confirm_msg(title, text, yes_label="Instalar", no_label="Cancelar"):
-    """Diálogo con dos opciones reales (yes_label/no_label, configurables). Devuelve
-    True si el usuario eligió la opción de "yes_label" (o si el diálogo se cerró
-    solo por el timeout en macOS, cae a ese default), False si eligió "no_label".
-    En Windows, MessageBoxW no permite re-etiquetar sus botones nativos, así que se
-    usa Sí/No con el texto del cuerpo aclarando qué hace cada uno."""
     try:
         if sys.platform == "darwin":
             script = (
@@ -77,10 +68,6 @@ def confirm_msg(title, text, yes_label="Instalar", no_label="Cancelar"):
         return True
 
 def notify_progress(text):
-    """Aviso liviano de avance durante la instalación. A diferencia de show_msg, no
-    requiere que el usuario haga clic: en macOS es un banner de Notificaciones (la app
-    corre sin consola visible, --windowed); en Windows/Linux basta con print() porque
-    esas builds sí llevan consola (--console)."""
     try:
         if sys.platform == "darwin":
             subprocess.run(["osascript", "-e", f'display notification "{text}" with title "Parrot"'])
@@ -90,10 +77,6 @@ def notify_progress(text):
         print(text)
 
 def find_mac_python():
-    """Las apps lanzadas con doble clic en Finder no heredan el PATH completo del shell
-    (no leen .zshrc/.bash_profile), así que shutil.which() puede no encontrar un Python
-    que en realidad sí está instalado. Buscamos directo en las rutas típicas antes de
-    asumir que falta y disparar una reinstalación innecesaria."""
     import glob
     candidates = ["/opt/homebrew/bin/python3", "/usr/local/bin/python3"]
     candidates += sorted(glob.glob("/Library/Frameworks/Python.framework/Versions/3.*/bin/python3"), reverse=True)
@@ -102,17 +85,12 @@ def find_mac_python():
             return path
     return None
 
-# Windows/Linux: builds estáticas con licencia LGPL explícita, de BtbN/FFmpeg-Builds
-# (proyecto en GitHub activamente mantenido, con "latest" como tag estable que no
-# cambia de URL entre versiones).
 FFMPEG_WIN_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip"
 FFMPEG_LINUX_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-lgpl.tar.xz"
+PARROT_FFMPEG_MACOS_URL = "https://github.com/JJaroll/Parrot/releases/latest/download/Parrot_ffmpeg_macos_arm64_lgpl.zip"
 
 
 def _extract_named_binaries(archive_path, wanted_names, dest_dir):
-    """Busca dentro del archivo (.zip o .tar.xz) los binarios cuyo nombre de archivo
-    coincida con wanted_names -sin importar en qué carpeta interna estén dentro del
-    archivo- y los copia sueltos (sin subcarpetas) a dest_dir."""
     found = set()
     if str(archive_path).endswith(".zip"):
         import zipfile
@@ -138,29 +116,12 @@ def _extract_named_binaries(archive_path, wanted_names, dest_dir):
 
 
 def _fetch_evermeet_url(tool_name):
-    """macOS: evermeet.cx expone una API estable que siempre devuelve la versión más
-    reciente, así que no hace falta hardcodear un número de versión (quedaría
-    desactualizado). Sus builds compilan con --enable-gpl (no LGPL, a diferencia de
-    las de Windows/Linux) porque no se encontró una fuente de binarios estáticos
-    para macOS igual de confiable y mantenida que sí fuera LGPL."""
     with urllib.request.urlopen(f"https://evermeet.cx/ffmpeg/info/{tool_name}/release", timeout=15) as r:
         data = json.load(r)
     return data["download"]["zip"]["url"]
 
 
 def ensure_ffmpeg():
-    """
-    Se asegura de que 'ffmpeg' y 'ffprobe' estén disponibles, descargando binarios
-    estáticos a ~/.parrot_studio/bin/ la primera vez si no se encuentran ya en el
-    PATH del sistema ni de una descarga anterior. services/separator.py y
-    services/mixer.py llaman a ffmpeg/ffprobe por PATH (vía ffmpeg-python), así que
-    esto no requiere tocar nada de ese código: alcanza con anteponer la carpeta
-    devuelta al PATH del proceso de main.py (ver main()).
-
-    Devuelve la carpeta a anteponer al PATH, o None si no hace falta (el sistema ya
-    los tiene) o si la descarga falló (main.py se las arreglará con lo que haya en
-    el sistema, igual que antes de este fix).
-    """
     exe_suffix = ".exe" if sys.platform == "win32" else ""
     wanted = {f"ffmpeg{exe_suffix}", f"ffprobe{exe_suffix}"}
 
@@ -178,7 +139,16 @@ def ensure_ffmpeg():
         if sys.platform == "win32":
             archive_urls = [FFMPEG_WIN_URL]
         elif sys.platform == "darwin":
-            archive_urls = [_fetch_evermeet_url("ffmpeg"), _fetch_evermeet_url("ffprobe")]
+            try:
+                archive_path = bin_dir / Path(PARROT_FFMPEG_MACOS_URL).name
+                urllib.request.urlretrieve(PARROT_FFMPEG_MACOS_URL, archive_path)
+                _extract_named_binaries(archive_path, wanted, bin_dir)
+                archive_path.unlink(missing_ok=True)
+            except Exception as e:
+                print(f"[Parrot] Build propia de ffmpeg no disponible ({e}), usando evermeet.cx como respaldo.")
+            archive_urls = [] if all((bin_dir / name).exists() for name in wanted) else [
+                _fetch_evermeet_url("ffmpeg"), _fetch_evermeet_url("ffprobe")
+            ]
         else:
             archive_urls = [FFMPEG_LINUX_URL]
 
@@ -202,20 +172,10 @@ def ensure_ffmpeg():
 
     return None
 
-# Builds CUDA de torch/torchaudio 2.8.0 confirmadas en download.pytorch.org (de más
-# nueva a más vieja). Se usa la más nueva que el driver de la GPU soporte.
 TORCH_CUDA_INDEXES = [((12, 9), "cu129"), ((12, 8), "cu128"), ((12, 6), "cu126")]
 
 
 def detect_cuda_index():
-    """Busca nvidia-smi (lo instala el driver oficial de NVIDIA junto con la GPU) para
-    saber si hay una GPU compatible con CUDA disponible, y hasta qué versión de CUDA
-    soporta el driver instalado. Devuelve el nombre del índice de PyTorch más nuevo
-    compatible ("cu129"/"cu128"/"cu126"), o None si no hay GPU NVIDIA o el driver es
-    demasiado viejo para cualquiera de las builds de torch==2.8.0 disponibles.
-
-    Solo tiene sentido en Windows/Linux: las Mac modernas no llevan GPU NVIDIA (usan
-    MPS de Apple Silicon, ya soportado por el wheel estándar de PyPI sin nada especial)."""
     if sys.platform == "darwin" or not shutil.which("nvidia-smi"):
         return None
     try:
@@ -233,20 +193,6 @@ def detect_cuda_index():
     return None
 
 def run_install_with_gui(steps):
-    """
-    Corre los pasos de instalación (crear venv, actualizar pip, instalar requirements) en
-    un hilo de fondo mientras muestra una ventana con barra de progreso y los logs en vivo.
-    Usa tkinter (viene con Python, no agrega dependencias pesadas de UI).
-
-    steps: lista de (etiqueta, comando, total_para_progreso_o_None). Cuando se da un total
-    (ej. cantidad de paquetes en requirements.txt), el progreso de ese paso se estima
-    contando líneas "Collecting ..." que imprime pip; si no, el paso simplemente salta a
-    100% al terminar.
-
-    Devuelve (ok: bool, error: str | None). Si tkinter no está disponible (o es una build
-    de Tk demasiado vieja para confiar en ella, ver más abajo), corre los pasos igual con
-    notify_progress como respaldo y nunca bloquea la instalación por esto.
-    """
     def _run_without_gui():
         try:
             for label, cmd, _ in steps:
@@ -262,11 +208,6 @@ def run_install_with_gui(steps):
     except Exception:
         return _run_without_gui()
 
-    # Algunas instalaciones de Python en macOS (la de Xcode Command Line Tools, en
-    # particular) traen el Tcl/Tk 8.5 del sistema, deprecado por Apple desde hace años.
-    # En macOS recientes, tk.Tk() directamente aborta el proceso entero (SIGABRT, no una
-    # excepción de Python capturable) en vez de fallar de forma prolija. Tk 8.6+ (lo que
-    # trae cualquier Python instalado desde python.org) no tiene este problema.
     if tk.TkVersion < 8.6:
         return _run_without_gui()
 
@@ -274,11 +215,6 @@ def run_install_with_gui(steps):
     import queue
 
     try:
-        # En Linux sin entorno gráfico (WSL sin WSLg, una sesión SSH sin X forwarding,
-        # etc.) esto no aborta el proceso como el caso de Tk viejo de más arriba, pero
-        # sí tira una excepción de Python (TclError: no display) al no encontrar
-        # DISPLAY/Wayland. Sin este try/except, esa excepción quedaría sin capturar y
-        # tumbaría el launcher entero en vez de caer al modo consola.
         root = tk.Tk()
     except Exception:
         return _run_without_gui()
@@ -295,10 +231,6 @@ def run_install_with_gui(steps):
     pct_var = tk.StringVar(value="0%")
     tk.Label(root, textvariable=pct_var, anchor="e").pack(fill="x", padx=16)
 
-    # El botón está visible y activo desde el arranque (como "Cancelar"); al terminar solo se
-    # le cambian texto/comando. Antes se creaba oculto y recién se mostraba con pack() al
-    # final, y la ventana quedaba sin responder al hacer clic — mostrarlo desde el principio
-    # evita esa clase de problema por completo, además de dar una forma real de cancelar.
     button_frame = tk.Frame(root)
     button_frame.pack(side="bottom", fill="x", padx=16, pady=(0, 16))
 
@@ -326,13 +258,6 @@ def run_install_with_gui(steps):
                 process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
                 current_process["proc"] = process
                 ticks = 0
-                # pip imprime "Collecting X" de entrada para TODOS los paquetes casi de una
-                # (resolución de metadatos), mucho antes de bajar/compilar/instalar nada, así
-                # que si solo contáramos eso la barra saltaría a ~100% enseguida y se quedaría
-                # pegada ahí durante la parte más lenta. Sumar también "Downloading"/"Using
-                # cached"/"Building wheel for" (y duplicar el total esperado, ya que cada
-                # paquete típicamente dispara 2 de estas líneas) reparte el avance de forma
-                # más pareja a lo largo de todo el proceso, no solo al principio.
                 progress_prefixes = ("Collecting ", "Downloading ", "Using cached ", "Building wheel for ")
                 for line in process.stdout:
                     if cancel_requested.is_set():
@@ -479,9 +404,6 @@ def install_python():
             script = f'do shell script "installer -pkg {installer_path} -target /" with administrator privileges'
             subprocess.run(["osascript", "-e", script], check=True)
 
-            # El instalador no actualiza el PATH de este proceso ya en marcha (y las apps
-            # lanzadas con doble clic tienen un PATH mínimo de por sí), así que apuntamos
-            # directo a la ruta donde el instalador oficial deja el binario.
             installed_py = Path("/Library/Frameworks/Python.framework/Versions/3.11/bin/python3")
             return str(installed_py) if installed_py.exists() else "python3"
             
@@ -510,10 +432,6 @@ def main():
     else:
         python_exe = venv_dir / "bin" / "python"
 
-    # Marca que solo se escribe cuando "pip install -r requirements.txt" termina con éxito.
-    # Si solo revisáramos si python_exe existe, una instalación que falló a mitad de camino
-    # (venv creado, pero requirements.txt incompleto) se daría por buena en el siguiente
-    # arranque y saltaría directo a ejecutar main.py con un entorno roto.
     install_marker = venv_dir / ".install_complete"
 
     # FASE DE INSTALACIÓN
@@ -567,10 +485,6 @@ def main():
                  "--index-url", f"https://download.pytorch.org/whl/{cuda_index}"],
                 2,
             ))
-            # Ya quedaron instalados vía el índice de CUDA; si el paso general los
-            # reinstalara desde PyPI normal pisaría la build CUDA con la de CPU (pip no
-            # distingue de forma confiable "torch==2.8.0" de "torch==2.8.0+cuXXX" al
-            # comparar versiones), así que se sacan de la lista general.
             req_lines = [l for l in req_lines if not l.lower().startswith(("torch==", "torchaudio=="))]
 
         install_steps.append((
@@ -595,10 +509,6 @@ def main():
     if ffmpeg_bin_dir:
         env["PATH"] = ffmpeg_bin_dir + os.pathsep + env.get("PATH", "")
 
-    # main.py queda sin consola propia (lanzado desde este launcher --windowed).
-    # Redirigir su salida a un archivo evita que un print()/logging suelto lo tumbe
-    # (mismo problema de stdout/stderr en None que más arriba) y deja un log
-    # consultable si algo falla, en vez de perder esa información por completo.
     server_log = open(app_data_dir / "parrot_server.log", "a", encoding="utf-8", buffering=1)
     popen_kwargs = {"cwd": str(app_data_dir), "env": env, "stdout": server_log, "stderr": server_log}
     if sys.platform == "win32":
@@ -610,28 +520,11 @@ def main():
     print("Parrot quedó corriendo como proceso independiente (ver el ícono de bandeja para cerrarlo).")
 
     if sys.platform == "linux":
-        # Empaquetado como AppImage, ESTE proceso es el que mantiene viva la carpeta
-        # temporal (montada por FUSE o auto-extraída) donde vive main.py -según
-        # get_source_dir(), main.py corre desde $APPDIR/usr/src-. Si termina antes de
-        # tiempo, esa carpeta desaparece y main.py se cae a mitad de arranque (imports
-        # que fallan al no encontrar sus propios archivos). A diferencia de macOS (ver
-        # abajo), en Linux/AppImage este proceso SÍ tiene que quedarse esperando.
         try:
             process.wait()
         except KeyboardInterrupt:
             process.terminate()
         return
-
-    # Terminar el proceso del todo (en vez de quedarse esperando con process.wait()) es la
-    # forma confiable de que macOS se saque de encima cualquier resto visual de la ventana de
-    # instalación de Tk: si este proceso sigue vivo después de haber mostrado esa ventana, el
-    # WindowServer puede dejarla "zombie" en pantalla (cursor de carga infinito) aunque el
-    # código ya la haya destruido correctamente, porque nada vuelve a bombear el loop de
-    # eventos de Cocoa una vez terminado root.mainloop(). main.py no depende de este proceso
-    # (no hereda pipes ni nada por el estilo), así que puede seguir corriendo solo. En
-    # Windows no hace falta este workaround, pero tampoco molesta: los archivos de main.py
-    # ya quedaron copiados de forma permanente por el instalador de Inno Setup, no dependen
-    # de que este proceso siga vivo.
     os._exit(0)
 
 if __name__ == "__main__":

@@ -83,6 +83,35 @@ jobs:
           # Hay que volver a firmar después de terminar de modificar el bundle.
           codesign --deep --force --sign - dist/Parrot.app
 
+      - name: "[macOS] Compilar ffmpeg propio (LGPL, sin GPL/nonfree)"
+        if: matrix.platform == 'macos'
+        run: |
+          brew install nasm lame pkg-config
+
+          FFMPEG_VERSION=8.1.2
+          LAME_PREFIX="$(brew --prefix lame)"
+          curl -L -o ffmpeg-src.tar.xz "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz"
+          tar xf ffmpeg-src.tar.xz
+          cd "ffmpeg-${FFMPEG_VERSION}"
+
+          ./configure \
+            --disable-gpl \
+            --disable-nonfree \
+            --disable-doc \
+            --disable-debug \
+            --disable-ffplay \
+            --enable-libmp3lame \
+            --extra-cflags="-I${LAME_PREFIX}/include" \
+            --extra-ldflags="-L${LAME_PREFIX}/lib"
+
+          make -j"$(sysctl -n hw.ncpu)"
+          cd ..
+
+          mkdir -p out_release
+          zip -j out_release/Parrot_ffmpeg_macos_arm64_lgpl.zip \
+            "ffmpeg-${FFMPEG_VERSION}/ffmpeg" \
+            "ffmpeg-${FFMPEG_VERSION}/ffprobe"
+
       - name: "[macOS] Instalar create-dmg"
         if: matrix.platform == 'macos'
         run: |
