@@ -178,3 +178,6 @@ outputs/
 *.mkv
 *.MOV
 *.mov
+
+# Notas de proceso internas (no pensadas para el repo público)
+icon.txt
