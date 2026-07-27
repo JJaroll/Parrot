@@ -1,3 +1,19 @@
+"""
+Parrot
+-----------
+Estudio local de separación de fuentes de audio (stems), transcripción y mezcla multitarea.
+
+Desarrollado por: JJaroll
+GitHub: https://github.com/JJaroll
+Fecha: 27/07/2026
+Licencia: GNU GPLv3
+"""
+
+__author__ = "JJaroll"
+__version__ = "1.0.0"
+__maintainer__ = "JJaroll"
+__status__ = "Production"
+
 import os
 import shutil
 import uuid
@@ -39,7 +55,6 @@ static_dir = BASE_DIR / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-# Mock In-Memory Job DB
 JOBS_DB = {}
 separator_service = AudioSeparatorService(jobs_dir=str(JOBS_DIR))
 mixer_service = AudioMixerService(jobs_dir=str(JOBS_DIR), uploads_dir=str(UPLOAD_DIR))
@@ -49,7 +64,7 @@ app.mount("/workspace", StaticFiles(directory=str(WORKSPACE_DIR)), name="workspa
 
 class StemConfig(BaseModel):
     volume: float = 1.0
-    pan: float = 0.0  # -1.0 (izquierda) .. 1.0 (derecha)
+    pan: float = 0.0
     noise_gate: bool = False
     highpass_freq: float = 0.0
     bass_gain: float = 0.0
@@ -65,7 +80,7 @@ class MergeRequest(BaseModel):
     other: StemConfig = StemConfig()
     normalize: bool = False
     output_format: str = "wav_44100"
-    export_mode: str = "mix"  # "mix" (audio+video), "audio" (solo audio), "video" (solo video, sin audio)
+    export_mode: str = "mix"
 
 def process_separation_work(job_id: str, file_path: Path):
     try:
@@ -175,7 +190,6 @@ def _format_size(num_bytes: int) -> str:
 
 @app.post("/api/v1/cleanup")
 async def cleanup_workspace():
-    #Borra todo lo generado (uploads originales + stems separados + mixes + transcripciones) para liberar espacio.
     freed_bytes = _dir_size(JOBS_DIR) + _dir_size(UPLOAD_DIR)
 
     for directory in (JOBS_DIR, UPLOAD_DIR):
@@ -189,7 +203,6 @@ async def cleanup_workspace():
 
 @app.get("/api/v1/trim/{job_id}")
 async def trim_stem(job_id: str, background_tasks: BackgroundTasks, start: float, end: float, stem: str = "vocals"):
-    #Descarga solo el fragmento [start, end] (segundos) de un stem ya separado, sin fusionar nada.
     job = JOBS_DB.get(job_id)
     if not job or job.get("status") != "completed":
         raise HTTPException(status_code=400, detail="Job no está listo (separación no completada)")
@@ -227,12 +240,35 @@ async def merge_stems(job_id: str, request: MergeRequest):
         logger.error(f"Merge error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+def print_signature():
+    signature = """
+    ╔══════════════════════════════════════════════════════════════════════╗
+    ║                                                                      ║
+    ║      ██╗     ██╗  █████╗ ██████╗  ██████╗ ██╗     ██╗                ║
+    ║      ██║     ██║ ██╔══██╗██╔══██╗██╔═══██╗██║     ██║                ║
+    ║      ██║     ██║ ███████║██████╔╝██║   ██║██║     ██║                ║
+    ║ ██╗  ██║██╗  ██║ ██╔══██║██╔══██╗██║   ██║██║     ██║                ║
+    ║ ╚█████╔╝╚█████╔╝ ██║  ██║██║  ██║╚██████╔╝███████╗███████╗           ║
+    ║  ╚════╝  ╚════╝  ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝           ║
+    ║                                                                      ║
+    ║   Parrot v1.0.0 - "Dando vida al sonido."                            ║
+    ║   github.com/JJaroll                                                 ║
+    ║                                                                      ║
+    ╚══════════════════════════════════════════════════════════════════════╝
+    """
+    try:
+        print(signature)
+    except UnicodeEncodeError:
+        pass
+
 if __name__ == "__main__":
     import threading
     import uvicorn
     import webbrowser
     from tray_icon import run_tray_icon
     from hosts_setup import ensure_local_hostname, HOSTNAME
+
+    print_signature()
 
     HOST = "127.0.0.1"
     PORT = 8001

@@ -1,3 +1,8 @@
+"""
+Módulo para administrar y configurar la resolución de nombres local en el archivo hosts del sistema
+(/etc/hosts en macOS/Linux o System32/drivers/etc/hosts en Windows) para mapear parrot.local.
+"""
+
 import os
 import shutil
 import subprocess
@@ -17,7 +22,6 @@ def _hosts_file_path() -> Path:
 
 
 def is_hostname_mapped(hostname: str = HOSTNAME) -> bool:
-    #Revisa si el archivo hosts del sistema ya tiene una entrada activa para el hostname.
     try:
         content = _hosts_file_path().read_text(encoding="utf-8", errors="ignore")
     except Exception:
@@ -90,7 +94,6 @@ def _append_linux() -> bool:
 
 
 def ensure_local_hostname(on_before_prompt=None) -> bool:
-    
     if is_hostname_mapped():
         return True
 

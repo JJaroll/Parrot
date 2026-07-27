@@ -4,6 +4,12 @@ Todos los cambios notables de este proyecto se documentarán en este archivo.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-26
+### Agregado
+- Primer release oficial v1.0.0 de Parrot Audio Studio.
+- Limpieza y estandarización de comentarios descriptivos en todos los módulos de código fuente.
+- Firma de autor y metadatos de producción agregados a `main.py`.
+
 ## [0.1.3] - 2026-07-21
 ### Agregado
 - Nota en el README sobre cómo abrir la app en macOS si Gatekeeper la bloquea o la marca como dañada.

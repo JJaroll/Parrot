@@ -1,3 +1,8 @@
+"""
+Servicio de mezcla y manipulación de streams de audio y video utilizando FFmpeg.
+Permite ajustar volumen, pan estéreo, filtros ecualizadores, puertas de ruido y exportar en múltiples formatos.
+"""
+
 import os
 import logging
 import tempfile
@@ -93,7 +98,6 @@ class AudioMixerService:
 
             a_stream = stream.audio
 
-            # HPF primero: limpia el rumble antes del resto de la cadena
             if highpass_freq and highpass_freq > 0:
                 a_stream = a_stream.filter('highpass', f=highpass_freq)
 
@@ -106,12 +110,10 @@ class AudioMixerService:
             if bass_gain != 0.0:
                 a_stream = a_stream.filter('bass', g=bass_gain)
             if mid_gain != 0.0:
-                # Mid frequencies ~1000Hz, width ~200Hz
                 a_stream = a_stream.filter('equalizer', f=1000, width_type='h', w=200, g=mid_gain)
             if treble_gain != 0.0:
                 a_stream = a_stream.filter('treble', g=treble_gain)
 
-            # Pan (balance estéreo): -1.0 = todo a la izquierda, 1.0 = todo a la derecha.
             if pan and pan != 0.0:
                 a_stream = a_stream.filter('stereotools', balance_out=pan)
 

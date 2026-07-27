@@ -1,3 +1,8 @@
+"""
+Servicio de separación de fuentes de audio (stems) utilizando la librería Demucs (modelo htdemucs_6s).
+Gestiona la extracción previa del audio desde archivos de video, la ejecución de la IA en GPU/MPS/CPU y el seguimiento del progreso.
+"""
+
 import logging
 import re
 import subprocess
@@ -52,7 +57,6 @@ class AudioSeparatorService:
             "-d", device,
         ]
 
-        # MAC Memory/VRAM optimization
         if device == "mps":
             cmd.extend(["--segment", "7"])
         cmd.append(str(audio_path))
@@ -96,7 +100,6 @@ class AudioSeparatorService:
             on_progress(100)
 
     def process_job(self, job_id: str, file_path: Path, on_progress: Optional[Callable[[int], None]] = None) -> Dict[str, Any]:
-        #Cerebro Pipeline: Ingestion -> Extraction -> Separation
         job_dir = self.jobs_dir / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
         

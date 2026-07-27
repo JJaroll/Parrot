@@ -1,3 +1,8 @@
+"""
+Módulo para la gestión del icono de la bandeja del sistema (System Tray) en la barra de tareas/menú.
+Permite abrir la interfaz gráfica en el navegador web por defecto y detener la aplicación de forma limpia.
+"""
+
 import sys
 import webbrowser
 from pathlib import Path

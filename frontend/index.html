@@ -1,3 +1,8 @@
+<!--
+  Interfaz de usuario principal (SPA) de Parrot Audio Studio.
+  Estudio de mezcla de audio, visualización de formas de onda con Wavesurfer.js,
+  controles de ecualización, volumen, pan estéreo y transcripción en tiempo real.
+-->
 <!DOCTYPE html>
 <html lang="es" data-theme="light" data-color="orange">
 
@@ -58,7 +63,6 @@
     </script>
 
     <style>
-        /* Tema por defecto */
         :root {
             --bg-app: #151618;
             --bg-main: #25262A;
@@ -122,7 +126,6 @@
             --accent-light: rgba(230, 46, 107, 0.15);
         }
 
-        /* LOGO DE PARROT: se muestra la variante que coincide con el color de acento activo */
         .parrot-logo-img {
             display: none;
         }
@@ -474,7 +477,7 @@
 
                 <span class="font-headline text-[20px] font-bold tracking-tighter text-main">Parrot</span>
                 <span class="font-label-caps text-[11px] text-accent" id="about-version"
-                    data-i18n="about_version">Versión 1.0</span>
+                    data-i18n="about_version">Versión 1.0.0</span>
 
                 <p class="font-data text-[13px] text-muted/70" data-i18n="about_description">Separación de audio y
                     post-producción local con Demucs y Whisper.</p>
@@ -826,7 +829,7 @@
 
         function updateEQ(s_id) {
             const f = filters[s_id];
-            if (!f) return; // se aplicará solo al render si la pista todavía no cargó en el navegador
+            if (!f) return;
             const treble = parseFloat(document.getElementById(`treble_${s_id}`)?.value ?? 0);
             const mid = parseFloat(document.getElementById(`mid_${s_id}`)?.value ?? 0);
             const bass = parseFloat(document.getElementById(`bass_${s_id}`)?.value ?? 0);
@@ -1040,8 +1043,6 @@
 
                     <div id="fx_drawer_${s_id}" class="hidden flex-col bg-card border-t border-theme p-3 overflow-x-auto" onclick="event.stopPropagation();" onmousedown="event.stopPropagation();">
                         <div class="flex gap-10 items-center pl-6 w-max">
-                            <!-- Gate: solo se aplica al exportar, un gate real no se puede previsualizar
-                                 en vivo con nodos estándar de Web Audio (haría falta un AudioWorklet). -->
                             <label class="flex items-center gap-3 cursor-pointer text-[10px] font-headline text-muted hover:text-main transition-colors" title="Se aplica solo al exportar (Export Stems), no tiene preview en vivo" data-i18n-title="gate_tooltip">
                                 <span class="font-bold tracking-widest">GATE</span>
                                 <div class="relative w-5 h-5 flex items-center justify-center border border-theme bg-input rounded-[2px]">
@@ -1094,8 +1095,8 @@
         let audioCtx;
         let analysers = {};
         let dataArrays = {};
-        let filters = {}; // { stem_id: { hpf, bass, mid, treble, panner } }
-        let trimRanges = {}; // { stem_id: { start, end } } — marcas de recorte en segundos
+        let filters = {};
+        let trimRanges = {};
 
         function initMeters() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1268,7 +1269,6 @@
         });
 
         function newProject() {
-            // El job sigue disponible en el Historial; esto solo limpia la vista para empezar de nuevo.
             Object.values(wavesurfers).forEach(ws => { if (ws) ws.destroy(); });
             wavesurfers = {};
             analysers = {};
@@ -1360,7 +1360,6 @@
             pctEl.innerText = `${Math.round(clamped)}%`;
         }
 
-        // Sobrevive a un F5: el backend no pierde el job mientras siga corriendo, solo el navegador pierde la referencia.
         const HISTORY_KEY = 'parrot_job_history';
         const ACTIVE_JOB_KEY = 'parrot_active_job';
 
@@ -1488,7 +1487,6 @@
                     clearActiveJob();
                     setStatus(t('status_job_failed', { error: data.error || t('unknown_error') }), false, true);
                 } else {
-                    // Sigue en curso en el backend (queued/processing): retomamos el polling.
                     currentJobId = jobId;
                     localStorage.setItem(ACTIVE_JOB_KEY, jobId);
                     const entry = getHistory().find(j => j.job_id === jobId);
@@ -1632,7 +1630,6 @@
                         if (!media._hasSource) {
                             const source = audioCtx.createMediaElementSource(media);
 
-                            // Cadena EQ/HPF en vivo.
                             const hpf = audioCtx.createBiquadFilter();
                             hpf.type = 'highpass';
                             hpf.frequency.value = 10;
@@ -1738,7 +1735,7 @@
             icon.innerText = isPlaying ? 'play_arrow' : 'pause';
         }
 
-        let selectedExportMode = 'mix'; // 'mix' (audio+video) | 'audio' | 'video'
+        let selectedExportMode = 'mix';
 
         function setExportMode(mode) {
             selectedExportMode = mode;
@@ -1885,7 +1882,7 @@
                 settings_language_title: "Idioma",
                 settings_engine_label: "Motor de separación",
                 common_close: "Cerrar",
-                about_version: "Versión 1.0",
+                about_version: "Versión 1.0.0",
                 about_description: "Separación de audio y post-producción local con Demucs y Whisper.",
                 about_author_label: "Desarrollado por",
                 about_license: "Distribuido bajo Licencia MIT",
@@ -1992,7 +1989,7 @@
                 settings_language_title: "Language",
                 settings_engine_label: "Separation engine",
                 common_close: "Close",
-                about_version: "Version 1.0",
+                about_version: "Version 1.0.0",
                 about_description: "Local audio separation and post-production with Demucs and Whisper.",
                 about_author_label: "Developed by",
                 about_license: "Distributed under the MIT License",
@@ -2099,7 +2096,7 @@
                 settings_language_title: "言語",
                 settings_engine_label: "分離エンジン",
                 common_close: "閉じる",
-                about_version: "バージョン 1.0",
+                about_version: "バージョン 1.0.0",
                 about_description: "Demucs と Whisper によるローカル音声分離・後処理。",
                 about_author_label: "開発者",
                 about_license: "MIT ライセンスの下で配布",
@@ -2290,7 +2287,6 @@
         }
         loadEngineInfo();
 
-        // Si había un trabajo abierto antes del reload, lo retoma solo.
         (function autoResume() {
             const jobId = localStorage.getItem(ACTIVE_JOB_KEY);
             if (jobId) {

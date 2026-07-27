@@ -1,3 +1,9 @@
+"""
+Lanzador e instalador ejecutable de escritorio para Parrot Audio Studio.
+Se encarga de verificar el entorno, instalar dependencias (Python, PyTorch, Whisper, Demucs, FFmpeg),
+manejar la interfaz gráfica de instalación (Tkinter) y ejecutar la aplicación FastAPI en segundo plano.
+"""
+
 import os
 import sys
 import subprocess
@@ -16,7 +22,6 @@ if sys.stdout is None or sys.stderr is None:
     sys.stderr = _log_file
 
 def show_msg(title, text):
-    #Muestra un cuadro de diálogo nativo según el sistema operativo.
     try:
         if sys.platform == "darwin":
             subprocess.run(["osascript", "-e", f'display dialog "{text}" with title "{title}" buttons {{"OK"}} default button "OK" giving up after 10'])
@@ -24,7 +29,6 @@ def show_msg(title, text):
             import ctypes
             ctypes.windll.user32.MessageBoxW(0, text, title, 0x40)
         else:
-            # Intenta usar zenity o kdialog en Linux
             if shutil.which("zenity"):
                 subprocess.run(["zenity", "--info", "--title", title, "--text", text])
             elif shutil.which("kdialog"):
@@ -317,7 +321,7 @@ def run_install_with_gui(steps):
                     status_var.set("Instalación completa.")
                     root.protocol("WM_DELETE_WINDOW", on_finish)
                     action_btn.configure(state="normal", text="Iniciar Parrot", command=on_finish)
-                    return  # No reprogramar poll_queue: evita competir con el cierre de la ventana
+                    return
                 elif kind == "failed":
                     status_var.set("Error durante la instalación")
                     root.protocol("WM_DELETE_WINDOW", on_finish)
@@ -343,24 +347,19 @@ def run_install_with_gui(steps):
     return result["ok"], result["error"]
 
 def get_source_dir():
-    #Detecta dónde está el código fuente (main.py y requirements.txt)
     if getattr(sys, 'frozen', False):
         exec_dir = Path(sys.executable).parent
         
-        # Modo macOS: El ejecutable está dentro de Parrot.app/Contents/MacOS
         if sys.platform == "darwin" and "Contents/MacOS" in str(exec_dir):
             return exec_dir.parent / "Resources" / "src"
             
-        # Modo Linux: AppImage monta un directorio temporal de solo lectura
         if sys.platform == "linux" and "APPIMAGE" in os.environ:
             appdir = os.environ.get("APPDIR")
             if appdir:
                 return Path(appdir) / "usr" / "src"
                 
-        # Modo Windows: Ejecutable y código fuente están en la misma carpeta ZIP extraída
         return exec_dir
     else:
-        # Ejecutando como script normal
         return Path(__file__).parent
 
 def install_python():
@@ -389,18 +388,15 @@ def install_python():
         
         print("Instalando de forma silenciosa. Por favor espera...")
         if sys.platform == "win32":
-            # Instalación silenciosa por usuario
             subprocess.run([installer_path, "/quiet", "InstallAllUsers=0", "PrependPath=1", "Include_test=0"], check=True)
             
-            # El Python local se instala en %LocalAppData%\Programs\Python\Python311\python.exe
             local_appdata = os.environ.get("LOCALAPPDATA", "")
             possible_py = Path(local_appdata) / "Programs" / "Python" / "Python311" / "python.exe"
             if possible_py.exists():
                 return str(possible_py)
-            return "python" # fallback
+            return "python"
             
         elif sys.platform == "darwin":
-            # Instalación en macOS (requiere credenciales, osascript muestra el popup nativo del sistema)
             script = f'do shell script "installer -pkg {installer_path} -target /" with administrator privileges'
             subprocess.run(["osascript", "-e", script], check=True)
 
@@ -420,7 +416,6 @@ def main():
         show_msg("Error", f"No se encontró main.py en {source_dir}. Asegúrate de extraer todos los archivos del ZIP.")
         sys.exit(1)
 
-    # El entorno virtual y los archivos generados vivirán en el directorio del usuario
     home = Path.home()
     app_data_dir = home / ".parrot_studio"
     app_data_dir.mkdir(parents=True, exist_ok=True)
@@ -434,7 +429,6 @@ def main():
 
     install_marker = venv_dir / ".install_complete"
 
-    # FASE DE INSTALACIÓN
     if not python_exe.exists() or not install_marker.exists():
         msg = ("Primera ejecución detectada.\n\n"
                "Se configurará el entorno y se descargarán los modelos de IA (PyTorch, Whisper, Demucs). "
@@ -443,12 +437,10 @@ def main():
         if not confirm_msg("Instalador de Parrot", msg):
             sys.exit(0)
         
-        # Encontrar el ejecutable de python del sistema para crear el venv
         system_python = sys.executable if not getattr(sys, 'frozen', False) else "python3"
         if sys.platform == "win32" and getattr(sys, 'frozen', False):
              system_python = "python"
              
-        # Verificar si python está instalado y disponible
         if not shutil.which(system_python):
             if sys.platform == "win32" and shutil.which("py"):
                 system_python = "py"
@@ -501,7 +493,6 @@ def main():
             sys.exit(1)
         install_marker.touch()
 
-    # FASE DE EJECUCIÓN
     print("Iniciando servidor Parrot...")
 
     ffmpeg_bin_dir = ensure_ffmpeg()
@@ -512,8 +503,6 @@ def main():
     server_log = open(app_data_dir / "parrot_server.log", "a", encoding="utf-8", buffering=1)
     popen_kwargs = {"cwd": str(app_data_dir), "env": env, "stdout": server_log, "stderr": server_log}
     if sys.platform == "win32":
-        # Sin esto, Windows puede abrirle su propia ventana de consola a main.py
-        # aunque el launcher no tenga una.
         popen_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
     process = subprocess.Popen([str(python_exe), str(main_py)], **popen_kwargs)

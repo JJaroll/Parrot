@@ -1,3 +1,8 @@
+"""
+Servicio de transcripción de voz a texto apoyado en faster-whisper.
+Procesa archivos de audio separados y exporta archivos de subtítulos (.srt) y texto plano (.txt).
+"""
+
 import logging
 from pathlib import Path
 from typing import Dict, Any
@@ -22,17 +27,12 @@ class TranscriptionService:
         self._model = None
 
     def _get_model(self) -> WhisperModel:
-        # Carga perezosa: el modelo se descarga/carga recién al primer uso, no al arrancar el servidor.
         if self._model is None:
             logger.info(f"Cargando modelo Whisper '{self.model_size}' (CPU, int8)...")
             self._model = WhisperModel(self.model_size, device="cpu", compute_type="int8")
         return self._model
 
     def transcribe(self, job_id: str, audio_path: Path) -> Dict[str, Any]:
-        """
-        Transcribe un stem de audio ya separado (normalmente 'vocals') y escribe
-        transcript.srt + transcript.txt junto al resto de los archivos del job.
-        """
         if not audio_path.exists():
             raise FileNotFoundError(f"No se encontró el audio a transcribir: {audio_path}")
 
@@ -40,7 +40,6 @@ class TranscriptionService:
         segments, info = model.transcribe(
             str(audio_path),
             beam_size=5,
-            # Evita que Whisper "se atasque" repitiendo la misma frase en loop con letras de canciones.
             condition_on_previous_text=False,
         )
 
