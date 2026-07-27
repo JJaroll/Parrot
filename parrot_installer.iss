@@ -18,7 +18,7 @@
 ; ============================================================================
 
 #define MyAppName "Parrot"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.1"
 #define MyAppPublisher "JJaroll"
 #define MyAppURL "https://github.com/JJaroll/Parrot"
 #define MyAppExeName "Parrot.exe"

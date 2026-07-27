@@ -89,6 +89,26 @@ def find_mac_python():
             return path
     return None
 
+MIN_PYTHON_VERSION = (3, 10)
+MAX_PYTHON_VERSION = (3, 13)
+
+
+def get_python_version(python_cmd):
+    try:
+        result = subprocess.run(
+            [python_cmd, "-c", "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')"],
+            capture_output=True, text=True, timeout=10,
+        )
+        major, minor = (int(x) for x in result.stdout.strip().split("."))
+        return (major, minor)
+    except Exception:
+        return None
+
+
+def is_supported_python(python_cmd):
+    version = get_python_version(python_cmd)
+    return version is not None and MIN_PYTHON_VERSION <= version <= MAX_PYTHON_VERSION
+
 FFMPEG_WIN_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip"
 FFMPEG_LINUX_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-lgpl.tar.xz"
 PARROT_FFMPEG_MACOS_URL = "https://github.com/JJaroll/Parrot/releases/latest/download/Parrot_ffmpeg_macos_arm64_lgpl.zip"
@@ -450,6 +470,12 @@ def main():
                 system_python = find_mac_python()
             else:
                 system_python = install_python()
+
+        if sys.platform in ("win32", "darwin") and not is_supported_python(system_python):
+            print(f"[Parrot] Python del sistema ({system_python}) no está en el rango soportado "
+                  f"({MIN_PYTHON_VERSION[0]}.{MIN_PYTHON_VERSION[1]}-{MAX_PYTHON_VERSION[0]}.{MAX_PYTHON_VERSION[1]}); "
+                  "descargando una versión compatible...")
+            system_python = install_python()
 
         req_lines = [l for l in requirements.read_text(encoding="utf-8").splitlines() if l.strip() and not l.strip().startswith("#")]
 

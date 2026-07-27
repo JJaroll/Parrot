@@ -4,6 +4,11 @@ Todos los cambios notables de este proyecto se documentarán en este archivo.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-27
+### Corregido
+- El instalador de Windows fallaba en máquinas con Python 3.14+ ya instalado (`pip install` no encontraba wheels para `lameenc==1.8.1` ni `onnxruntime==1.19.2`, pines congelados contra Python 3.11). `launcher.py` ahora valida que el Python del sistema esté en el rango soportado (3.10-3.13, el mismo techo de wheels de `torch==2.8.0`) antes de usarlo en Windows y macOS; si no lo está, descarga automáticamente el Python 3.11.9 conocido-bueno, igual que ya hacía cuando no encontraba ningún Python instalado.
+- Se actualizaron los pines `lameenc` (1.8.1 → 1.8.4) y `onnxruntime` (1.19.2 → 1.23.2) en `requirements.txt` a versiones más recientes que siguen siendo compatibles con el rango de Python soportado, dando más margen en Linux (donde no hay instalador automático de Python de respaldo).
+
 ## [1.0.0] - 2026-07-26
 ### Agregado
 - Primer release oficial v1.0.0 de Parrot Audio Studio.

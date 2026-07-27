@@ -10,7 +10,7 @@ Licencia: GNU GPLv3
 """
 
 __author__ = "JJaroll"
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __maintainer__ = "JJaroll"
 __status__ = "Production"
 
@@ -251,7 +251,7 @@ def print_signature():
     ║ ╚█████╔╝╚█████╔╝ ██║  ██║██║  ██║╚██████╔╝███████╗███████╗           ║
     ║  ╚════╝  ╚════╝  ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝           ║
     ║                                                                      ║
-    ║   Parrot v1.0.0 - "Dando vida al sonido."                            ║
+    ║   Parrot v1.0.1 - "Dando vida al sonido."                            ║
     ║   github.com/JJaroll                                                 ║
     ║                                                                      ║
     ╚══════════════════════════════════════════════════════════════════════╝
